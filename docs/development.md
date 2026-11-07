@@ -8,8 +8,8 @@ or compiler cache is not required. To move disposable output, use the optional
 
 ## Source build
 
-The repository pins Rust 1.99.0 in [rust-toolchain.toml](../rust-toolchain.toml).
-Install it with `rustup toolchain install 1.99.0 --component clippy,rustfmt`.
+The repository pins Rust 1.99.1 in [rust-toolchain.toml](../rust-toolchain.toml).
+Install it with `rustup toolchain install 1.99.1 --component clippy,rustfmt`.
 All workspace crates require Rust 1.99 or newer and use edition 2024.
 
 ```sh
