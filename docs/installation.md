@@ -88,6 +88,6 @@ abi-typegen --version
 For a source checkout, see [development](development.md). Native CLI use does not
 require Node; Node is used by the npm launcher and JavaScript project tooling.
 
-Archives are also available on [GitHub Releases](https://github.com/doublesharp/abi-typegen/releases).
+Archives are also available on [GitHub Releases](https://github.com/0xdoublesharp/abi-typegen/releases).
 Match the tag and platform, verify the archive against that release's checksum
 manifest when provided, then extract the executable into a directory on PATH.

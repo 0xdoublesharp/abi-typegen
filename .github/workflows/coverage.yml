@@ -47,7 +47,7 @@ jobs:
             doublcov-history-
 
       - name: Generate Doublcov report
-        uses: doublesharp/doublcov@v0
+        uses: 0xdoublesharp/doublcov@v0
         with:
           version: latest
           command: cargo-llvm-cov
