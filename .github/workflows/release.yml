@@ -22,7 +22,7 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.99.1"
-          arguments: --all-features
+          arguments: --workspace --all-features
 
       - name: Check tag, manifests, and changelog agree
         run: |

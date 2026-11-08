@@ -9,9 +9,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.5.0",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
-    "hardhat": "^3.9.0",
-    "prettier": "^3.8.4"
-  }
+    "hardhat": "^3.21.2",
+    "prettier": "^3.9.10"
+  },
+  "pnpm": {
+    "overrides": {
+      "minimatch@>=7 <11.0.1": "^11.0.5"
+    }
+  },
+  "packageManager": "pnpm@10.34.9"
 }

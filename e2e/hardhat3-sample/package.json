@@ -6,9 +6,10 @@
   "devDependencies": {
     "@0xdoublesharp/abi-typegen": "link:../../npm/abi-typegen",
     "@0xdoublesharp/hardhat-abi-typegen": "link:../../npm/hardhat-abi-typegen",
-    "@types/node": "^22.7.5",
-    "hardhat": "^3.9.0",
+    "@types/node": "^22.20.5",
+    "hardhat": "^3.21.2",
     "typescript": "^6.0.3",
-    "viem": "^2.53.1"
-  }
+    "viem": "^2.57.16"
+  },
+  "packageManager": "pnpm@10.34.9"
 }

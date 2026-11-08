@@ -35,7 +35,7 @@ Node or Python.
 | `src/`                        | CLI commands, artifact discovery, generation, watching, and ABI fetching |
 | `crates/abi-typegen-core/`    | ABI parsing and intermediate types                                       |
 | `crates/abi-typegen-config/`  | Configuration and target selection                                       |
-| `crates/abi-typegen-runtime/` | Shared Rust/Alloy codec and C ABI for native consumers                    |
+| `crates/abi-typegen-runtime/` | Shared Rust/Alloy codec and C ABI for native consumers                   |
 | `crates/abi-typegen-codegen/` | Target renderers and type mapping                                        |
 | `npm/abi-typegen/`            | npm launcher, binary installation, and checksum preparation              |
 | `npm/hardhat-abi-typegen/`    | Hardhat 2 and Hardhat 3 plugin entry points                              |
@@ -59,8 +59,10 @@ The Makefile also provides `build`, `test`, `check`, `fmt`, and `lint` targets.
 
 ## npm development
 
-Use Node and pnpm versions supported by the npm packages and the
-[CI workflow](../.github/workflows/ci.yml). Install the repository's lint tooling:
+Use pnpm 10.34.9, pinned in each package manifest and the
+[CI workflow](../.github/workflows/ci.yml), with a supported Node version. This
+version reads the security overrides in `package.json`; pnpm 11 ignores that
+configuration. Install the repository's lint tooling:
 
 ```sh
 cd npm

@@ -15,9 +15,23 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "ethers": "^6.17.0",
-    "hardhat": "^2.28.6",
+    "hardhat": "^2.29.1",
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2",
     "typescript": "^6.0.3"
-  }
+  },
+  "pnpm": {
+    "overrides": {
+      "@sentry/node>cookie": "^0.7.2",
+      "hardhat>adm-zip": "^0.6.1",
+      "hardhat>undici": "^6.29.1",
+      "hardhat>uuid": "^11.1.1",
+      "minimatch@>=7 <11.0.1": "^11.0.5",
+      "mocha>diff": "^8.0.3",
+      "mocha>glob": "^14.0.4",
+      "mocha>serialize-javascript": "^7.1.4",
+      "solc>tmp": "^0.2.6"
+    }
+  },
+  "packageManager": "pnpm@10.34.9"
 }

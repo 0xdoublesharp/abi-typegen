@@ -59,7 +59,7 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: "1.99.1"
-          arguments: --all-features
+          arguments: --workspace --all-features
 
   actionlint:
     name: actionlint
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.34.9
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -114,7 +114,7 @@ jobs:
           python-version: "3.11"
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.34.9
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -257,7 +257,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.34.9
       - uses: actions/setup-node@v4
         with:
           node-version: 22

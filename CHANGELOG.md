@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- Refresh compatible Rust dependencies, including TLS and QUIC fixes in the Rust
+  integration consumer.
+- Update npm tooling and SDK fixtures, with scoped overrides for vulnerable
+  transitive dependencies in the lint tools, Hardhat 2, and Ethers v5 fixtures.
+- Apply release and CI dependency-policy checks to every workspace crate,
+  including the shared native runtime.
+
+### Changed
+
+- Pin npm development projects and CI to pnpm 10.34.9 so manifest security
+  overrides are applied consistently.
+
 ## [0.9.1] - 2026-11-05
 
 ### Security
