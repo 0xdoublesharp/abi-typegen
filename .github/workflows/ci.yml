@@ -124,7 +124,7 @@ jobs:
       - run: cargo build
       - run: node --test npm/tests/package.test.mjs
       - run: cd e2e/foundry-sample && forge build
-      - run: cd e2e/foundry-sample && pnpm install --frozen-lockfile
+      - run: cd e2e/foundry-sample && pnpm install --frozen-lockfile --ignore-scripts
       - run: cd e2e/foundry-sample && ../../target/debug/abi-typegen generate --artifacts ./out --out ./src/generated --target viem
       - run: cd e2e/foundry-sample && ../../target/debug/abi-typegen generate --artifacts ./out --out ./src/generated --target ethers
       - run: cd e2e/foundry-sample && pnpm exec tsc --noEmit
@@ -268,7 +268,7 @@ jobs:
       - run: cargo build
       - name: Copy binary for Hardhat plugin
         run: mkdir -p npm/abi-typegen/bin && cp target/debug/abi-typegen npm/abi-typegen/bin/
-      - run: cd e2e/hardhat-sample && pnpm install --frozen-lockfile
+      - run: cd e2e/hardhat-sample && pnpm install --frozen-lockfile --ignore-scripts
       - name: Compile (triggers abi-typegen via plugin)
         run: cd e2e/hardhat-sample && pnpm exec hardhat compile
       - name: Verify output was generated
