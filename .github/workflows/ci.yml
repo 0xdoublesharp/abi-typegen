@@ -149,7 +149,7 @@ jobs:
           - target: kotlin
             os: ubuntu-latest
           - target: swift
-            os: macos-15
+            os: macos-26
           - target: c
             os: ubuntu-latest
           - target: csharp
