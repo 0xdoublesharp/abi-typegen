@@ -1,0 +1,9 @@
+packages: []
+pnpmfile: ./.pnpmfile.cjs
+
+overrides:
+  # Require patched WebSockets while retaining pnpm's release-age policy.
+  "ws@^8": "^8.22.1"
+
+patchedDependencies:
+  zod@3.25.76: ../../npm/patches/zod@3.25.76.patch

@@ -1,0 +1,17 @@
+packages: []
+pnpmfile: ./.pnpmfile.cjs
+
+overrides:
+  # Covers Ethers v5's exact pin and the other SDKs; newer releases retain the age check.
+  "ws@^8": "^8.22.1"
+  "abitype@0.7.1>zod:peer": "-"
+
+packageExtensions:
+  # Web3's legacy types need their own Zod 3 peer alongside the Zod 4 schema target.
+  abitype@0.7.1:
+    dependencies:
+      zod: 3.25.76
+
+patchedDependencies:
+  zod@3.25.76: ../../npm/patches/zod@3.25.76.patch
+  elliptic@6.6.1: ../../npm/patches/elliptic@6.6.1.patch

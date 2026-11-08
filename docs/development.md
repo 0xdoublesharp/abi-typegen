@@ -59,10 +59,11 @@ The Makefile also provides `build`, `test`, `check`, `fmt`, and `lint` targets.
 
 ## npm development
 
-Use pnpm 10.34.9, pinned in each package manifest and the
-[CI workflow](../.github/workflows/ci.yml), with a supported Node version. This
-version reads the security overrides in `package.json`; pnpm 11 ignores that
-configuration. Install the repository's lint tooling:
+Use pnpm 12.18.0, pinned in each package manifest and the
+[CI workflow](../.github/workflows/ci.yml), with a supported Node version. Shared
+security overrides live in each project's `pnpm-workspace.yaml`. The pnpm hook
+reads optional local storage settings without changing those overrides. Install
+the repository's lint tooling:
 
 ```sh
 cd npm
@@ -76,7 +77,7 @@ Build the debug CLI before running packaging tests, which exercise that binary:
 
 ```sh
 cargo build
-node --test npm/tests/package.test.mjs npm/tests/installer.test.mjs npm/tests/checksums.test.mjs
+node --test npm/tests/*.test.mjs
 ```
 
 Installer tests use local HTTP fixtures and real `curl`/`tar` processes. They need

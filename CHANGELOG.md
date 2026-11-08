@@ -14,13 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   integration consumer.
 - Update npm tooling and SDK fixtures, with scoped overrides for vulnerable
   transitive dependencies in the lint tools, Hardhat 2, and Ethers v5 fixtures.
+- Backport Zod 3 oversized-collection checks and elliptic RFC 6979 nonce-width
+  handling in legacy test dependencies, with regression cases for both fixes.
 - Apply release and CI dependency-policy checks to every workspace crate,
   including the shared native runtime.
 
 ### Changed
 
-- Pin npm development projects and CI to pnpm 10.34.9 so manifest security
-  overrides are applied consistently.
+- Pin npm development projects and CI to pnpm 12.18.0, with security overrides
+  in tracked workspace configuration and optional storage settings read by a
+  shared hook. Storage setup and disable preserve dependency policy.
+- Give Web3's legacy ABI types their own Zod 3 dependency alongside the generated
+  Zod 4 schema target.
 
 ## [0.9.1] - 2026-11-05
 

@@ -22,8 +22,10 @@ that requirement for later setup runs. Use a distinct root for each checkout.
 The volume's snapshot and backup exclusions are managed by the operating system
 or backup application; this script does not change them.
 
-The choice is saved in `.cargo/scratch.local.json`. Setup generates ignored Cargo,
-pnpm, and Make configuration from it. After setup, use ordinary commands:
+The choice is saved in `.cargo/scratch.local.json`. Setup generates ignored Cargo
+and Make configuration from it. Each project's pnpm hook reads the same saved
+choice; shared `pnpm-workspace.yaml` files keep their security overrides. After
+setup, use ordinary commands:
 
 ```sh
 cargo build
@@ -34,7 +36,7 @@ cd npm && pnpm install --frozen-lockfile --ignore-scripts
 
 No repeated storage flag or wrapper is required. Cargo sends builds, docs, compiler
 cache, and temporary files to the saved root. Make loads the generated environment
-for every recipe. The local pnpm settings route its package store, metadata cache,
+for every recipe. The pnpm hook routes its package store, metadata cache,
 and installed packages (pnpm's virtual store) to the saved root. Each project's
 `node_modules` stays a real local directory, because pnpm 12 writes links into it
 and rejects a symlinked one; it holds only links into storage. Existing relative
@@ -88,7 +90,7 @@ Solidity bindings and `out-solidity-validation` also stay. Global Cargo download
 and tool installations retain their existing locations.
 
 Setup refuses tracked output paths, unknown symlinks, conflicting data, or
-unrelated Cargo/pnpm configuration. It does not install or enable sccache; if you
+unrelated generated configuration. It does not install or enable sccache; if you
 already use it, its cache is routed to the chosen storage directory.
 
 Only reusable tooling is committed. Saved choices and generated tool settings
@@ -116,11 +118,10 @@ Re-enabling with a fresh root works directly. Reusing the previous root can expo
 two copies of corpus/history: the restored local copy and the retained external
 copy. Setup refuses to merge them automatically; reconcile them first or use a
 fresh root. It also refuses modified generated configuration or unexpected links
-instead of deleting them.
+instead of deleting them. Shared pnpm workspace configuration is preserved.
 
 Checkouts configured before pnpm 12 support linked each `node_modules` into
 storage. Rerunning `make scratch-setup` replaces those links with local
-directories and keeps the installed packages; then rerun `pnpm install`. Install
-with `--ignore-scripts` as shown: an install that meets an unapproved build script
-adds an `allowBuilds` placeholder to the generated `pnpm-workspace.yaml`, and
-rerunning setup restores the file.
+directories and keeps the installed packages; then rerun `pnpm install` with
+`--ignore-scripts` as shown. Setup does not generate or rewrite pnpm workspace
+files, so changes to shared dependency policy survive storage setup and disable.

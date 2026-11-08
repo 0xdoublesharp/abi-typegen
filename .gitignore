@@ -9,8 +9,6 @@ coverage/
 .cargo/config.toml
 .cargo/scratch.local.*
 **/__pycache__/
-npm/pnpm-workspace.yaml
-e2e/*/pnpm-workspace.yaml
 
 # Ignore directory links as well as real disposable directories.
 coverage

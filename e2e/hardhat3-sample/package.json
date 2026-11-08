@@ -11,5 +11,5 @@
     "typescript": "^6.0.3",
     "viem": "^2.57.16"
   },
-  "packageManager": "pnpm@10.34.9"
+  "packageManager": "pnpm@12.18.0"
 }

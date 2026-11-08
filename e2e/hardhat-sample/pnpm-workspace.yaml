@@ -1,0 +1,18 @@
+packages: []
+pnpmfile: ./.pnpmfile.cjs
+
+overrides:
+  "@sentry/node>cookie": "^0.7.2"
+  "hardhat>adm-zip": "^0.6.1"
+  "hardhat>undici": "^6.29.1"
+  "hardhat>uuid": "^11.1.1"
+  "minimatch@>=7 <11.0.1": "^11.0.5"
+  "mocha>diff": "^8.0.3"
+  "mocha>glob": "^14.0.4"
+  "mocha>serialize-javascript": "^7.1.4"
+  "solc>tmp": "^0.2.6"
+  # Require the patched baseline; pnpm's release-age policy governs newer releases.
+  "solc>follow-redirects": "^1.16.2"
+
+patchedDependencies:
+  elliptic@6.6.1: ../../npm/patches/elliptic@6.6.1.patch

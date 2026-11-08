@@ -2,10 +2,10 @@
   "private": true,
   "description": "Lint tooling for npm packages",
   "scripts": {
-    "lint": "eslint abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js",
-    "lint:fix": "eslint abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js --fix",
-    "format": "prettier --write abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js hardhat-abi-typegen/index.d.ts hardhat-abi-typegen/type-extensions.d.ts eslint.config.mjs",
-    "format:check": "prettier --check abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js hardhat-abi-typegen/index.d.ts hardhat-abi-typegen/type-extensions.d.ts eslint.config.mjs"
+    "lint": "eslint pnpm-storage.cjs .pnpmfile.cjs abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js",
+    "lint:fix": "eslint pnpm-storage.cjs .pnpmfile.cjs abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js --fix",
+    "format": "prettier --write abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js hardhat-abi-typegen/index.d.ts hardhat-abi-typegen/type-extensions.d.ts eslint.config.mjs pnpm-storage.cjs .pnpmfile.cjs",
+    "format:check": "prettier --check abi-typegen/scripts/ tests/ hardhat-abi-typegen/index.cjs hardhat-abi-typegen/index.js hardhat-abi-typegen/config-hooks.js hardhat-abi-typegen/solidity-hooks.js hardhat-abi-typegen/index.d.ts hardhat-abi-typegen/type-extensions.d.ts eslint.config.mjs pnpm-storage.cjs .pnpmfile.cjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -14,10 +14,5 @@
     "hardhat": "^3.21.2",
     "prettier": "^3.9.10"
   },
-  "pnpm": {
-    "overrides": {
-      "minimatch@>=7 <11.0.1": "^11.0.5"
-    }
-  },
-  "packageManager": "pnpm@10.34.9"
+  "packageManager": "pnpm@12.18.0"
 }

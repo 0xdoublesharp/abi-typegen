@@ -1,3 +1,161 @@
+---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    configDependencies: {}
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.18.0
+        version: 12.18.0
+
+packages:
+
+  '@pnpm/exe.android-arm64@12.18.0':
+    resolution: {integrity: sha512-fOF6IwgvnUKEmVedGqiAsNPfN2Ry8GvaqzSQOiF3RJFbpBfPKO/6YT54s1GjToyYinRxw9preHHPe4y2N3SzhA==}
+    cpu: [arm64]
+    os: [android]
+
+  '@pnpm/exe.android-x64@12.18.0':
+    resolution: {integrity: sha512-6OiolnaCsB3/GcJ9XNrenbUH3zFHRJ+5QynrMUUEyThbgnnCzWxa199hpQlOmxN4rAXuYQ0IYgWFNUZxyzg31Q==}
+    cpu: [x64]
+    os: [android]
+
+  '@pnpm/exe.darwin-arm64@12.18.0':
+    resolution: {integrity: sha512-zkq+4YzVIX39ETYLyC3W7LY7MpHEU/J3nRhHl4i2yPld2Cf2+rEKRh3ejJ4AmaQ77HHJLCktY4Z3jq0fpcxFXg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.darwin-x64@12.18.0':
+    resolution: {integrity: sha512-qMsL9qx92unOTa6hgkfiTJv8ceZaTx0IQg7InhYDVX2ZrTECujaVEEVypnJK5m3eGUsP1KD7Y4qIgleCwfRsYw==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@pnpm/exe.freebsd-x64@12.18.0':
+    resolution: {integrity: sha512-/9vy/4ms52cU4MjZ5NhHd6N2d9L9W0kARf5/ff2tweAHu0VeUzs/0qp/7ZHFuddm2Wa/m0AKQoPum9AVUCqKsw==}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@pnpm/exe.linux-arm64-musl@12.18.0':
+    resolution: {integrity: sha512-Vp+TIMPPyackVCXkOdEKH/RmAn/r07EcIyrgZYQK7VrkksqZOie0GnWIx+85mPqeFEYCRtXIZAFJ9L4ceTndDg==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-arm64@12.18.0':
+    resolution: {integrity: sha512-2dpyVBCHT+FfpuQh9i+7MXAqNWYLCvD5vYr5p6Eimxoga8USLnjbUgyj72AOrO0hjc5ri3TEFP3jiyBHjkSZpQ==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-ppc64@12.18.0':
+    resolution: {integrity: sha512-BBOOOfNJ2QwIIya3eKqOjiN4WNTszfRz7HCvw9XggcT7+ftMjNP8XJ/GfW+ltCBeUFR9d8WBVsr2m/NLjX2CZQ==}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-riscv64@12.18.0':
+    resolution: {integrity: sha512-7kMN77xSOYJX8GPSH5RbNAc5oM61LMmcSUukDDUwllnZPXm8GRPskCNsTWy8SCw01Kr1FB+5SwGNMiTdiziLNQ==}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-s390x@12.18.0':
+    resolution: {integrity: sha512-htuSCpEcmDzhKoJqXbPkvfr176dBHU0QIF5mWcRiqxRXAB/1JoYiMYotfjWpk+ztgpB9qlx4XnWlLFAf7gzc6g==}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-x64-musl@12.18.0':
+    resolution: {integrity: sha512-Uj+vzfIQ62kDP10x36yHZIXVs5ohdNtiPYwn5FhCLlNScHPo0OAI+ShGDtLofiBXKE7umu71Jmjm7N8a8zVcDw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@pnpm/exe.linux-x64@12.18.0':
+    resolution: {integrity: sha512-OJ+X2wcraldCwj75pCIerWARQSRpdfj0eBTs/2ODyhfeW46ylOnjTIE/GKra6Mn6E72/gBmXS8igrUioa+F9fQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.win32-arm64@12.18.0':
+    resolution: {integrity: sha512-wEY6jiACGcbhhi5yD59doHqNTndS7AaujaPmtWAu1DKkHru2hy5fJ9yUGecW72Ypaw2/I3BEprfMOopap2NQtw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@pnpm/exe.win32-x64@12.18.0':
+    resolution: {integrity: sha512-5FJkghO7RLRkQpWxeVEygW9XsmnNuxzPfXbgwFWCHsFyFhpDn/vOdL88ToQEM0Kt5igdW5s6U0/IDH8Dvkt3pg==}
+    cpu: [x64]
+    os: [win32]
+
+  pnpm@12.18.0:
+    resolution: {integrity: sha512-nXiC1dyCFH7PxOBiqjSDTgrQKWcQoYN6ERWuASEn02txCeMhrBWYod0KZVl2gbHpmRfhLtDXSerpEYeUM2O+sw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+snapshots:
+
+  '@pnpm/exe.android-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.android-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.darwin-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.darwin-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.freebsd-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64-musl@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-ppc64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-riscv64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-s390x@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64-musl@12.18.0':
+    optional: true
+
+  '@pnpm/exe.linux-x64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.win32-arm64@12.18.0':
+    optional: true
+
+  '@pnpm/exe.win32-x64@12.18.0':
+    optional: true
+
+  pnpm@12.18.0:
+    optionalDependencies:
+      '@pnpm/exe.android-arm64': 12.18.0
+      '@pnpm/exe.android-x64': 12.18.0
+      '@pnpm/exe.darwin-arm64': 12.18.0
+      '@pnpm/exe.darwin-x64': 12.18.0
+      '@pnpm/exe.freebsd-x64': 12.18.0
+      '@pnpm/exe.linux-arm64': 12.18.0
+      '@pnpm/exe.linux-arm64-musl': 12.18.0
+      '@pnpm/exe.linux-ppc64': 12.18.0
+      '@pnpm/exe.linux-riscv64': 12.18.0
+      '@pnpm/exe.linux-s390x': 12.18.0
+      '@pnpm/exe.linux-x64': 12.18.0
+      '@pnpm/exe.linux-x64-musl': 12.18.0
+      '@pnpm/exe.win32-arm64': 12.18.0
+      '@pnpm/exe.win32-x64': 12.18.0
+
+---
 lockfileVersion: '9.0'
 
 settings:
@@ -5,7 +163,16 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@ethersproject/providers>ws': ^8.22.2
+  ws@^8: ^8.22.1
+  abitype@0.7.1>zod:peer: '-'
+
+packageExtensionsChecksum: sha256-cV45EyUL0BOJBIz2PPTNc0cUC/7rwn4V+O/vhU64+XI=
+
+pnpmfileChecksum: sha256-oOeWQj1sd6c+SfaY/qGfrfD3y3D9vV9VX85Htq5e4aY=
+
+patchedDependencies:
+  elliptic@6.6.1: a89b47c527bf8fa285dbe1be0ccb5adebdd1ff8c3e1855b02321f17d48b8f98b
+  zod@3.25.76: ad4c3003022f5e80bbfe851d533a06f0ad3658405958bbfe52a8b85547235f94
 
 importers:
 
@@ -43,7 +210,7 @@ importers:
         version: 3.7.11(@tanstack/query-core@5.107.1)(@tanstack/react-query@5.107.1(react@19.3.1))(react@19.3.1)(typescript@6.0.3)(viem@2.57.16(typescript@6.0.3)(zod@4.6.7))
       web3:
         specifier: ^4.16.0
-        version: 4.16.0(typescript@6.0.3)(zod@4.6.7)
+        version: 4.16.0(typescript@6.0.3)
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -53,8 +220,8 @@ packages:
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
 
-  '@asamuzakjp/css-color@7.2.0':
-    resolution: {integrity: sha512-+JNLVlzePs1XiBT5s9aVkEjOePRoB//tk3bc69BGdzQCz7EICVSQuVPZu6tjc7vAJxBx5fama67LbOltwnXzPQ==}
+  '@asamuzakjp/css-color@7.1.9':
+    resolution: {integrity: sha512-vZ6JQVq8Ivgz6b/IBlAf90wZviXdluY13cQOPO+nJHbmXwGrPl2GcpqUY7a55/8ZVdfONXpCFMpRijOBCHNlcQ==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   '@asamuzakjp/dom-selector@10.0.5':
@@ -359,10 +526,6 @@ packages:
     resolution: {integrity: sha512-VBkRHTDZf9Myaek/dO3yMmOzB/y2s3Zo6nVU7yaw1G+TvCHAjwaJzNGN9yo4K5D8bU/VZXKP1EJpRhFr862PlQ==}
     peerDependencies:
       typescript: '>=4.9.4'
-      zod: ^3 >=3.19.1
-    peerDependenciesMeta:
-      zod:
-        optional: true
 
   abitype@1.2.3:
     resolution: {integrity: sha512-Ofer5QUnuUdTFsBRwARMoWKOH1ND5ehwYhJ3OJ/BQO+StkwQjHw0XyVh4vDttzHB7QOFhPHa/o413PJ82gU/Tg==}
@@ -569,12 +732,12 @@ packages:
   isomorphic-ws@5.0.0:
     resolution: {integrity: sha512-muId7Zzn9ywDsyXgTIafTry2sV3nySZeUDe6YedVd1Hvuuep5AsIlqK+XefWpYTyJG5e503F2xIuT2lcU6rCSw==}
     peerDependencies:
-      ws: '*'
+      ws: ^8.22.1
 
   isows@1.0.7:
     resolution: {integrity: sha512-I1fSfDCZL5P0v33sVqeTDSpcstAg/N+wF5HS033mogOVIp4B+oHC7oOCsA3axAbBSGTJ8QubbNmnIRN/h8U7hg==}
     peerDependencies:
-      ws: '*'
+      ws: ^8.22.1
 
   js-sha3@0.8.0:
     resolution: {integrity: sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q==}
@@ -637,8 +800,8 @@ packages:
       typescript:
         optional: true
 
-  parse5@8.1.1:
-    resolution: {integrity: sha512-EcR/6WDcU7b2N3vQSxKALCk9lXGtUMQxXio008OEMBE0kavu/7JLfBEeFPzi43nMqVDSbEn3QCK+BMCc9zO//w==}
+  parse5@8.1.0:
+    resolution: {integrity: sha512-sq3qBFpee5jeocbFbO48VHlGr8sT7mbXS0vxlKN6sottBtJzrOG3998sr0llSZcQAGgfpdmEYAIZE0P9z0dE8w==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -864,20 +1027,8 @@ packages:
     resolution: {integrity: sha512-wk4Mf4pR5mRP7eYuuTBCIQ9d0ud2Fv2jRLQpfgnRjbOxAFHmjKFValgTpitVKzJJS8ajnYQV2Du1SZ8j6b/EUQ==}
     engines: {node: '>= 0.4'}
 
-  ws@8.21.0:
-    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
-  ws@8.22.2:
-    resolution: {integrity: sha512-/rEZ2ejown2N5gxVTHUu9bVVC7ttu0/Tgzf5hbTOixR3Fs7mbbXgn2DbdbcKgJOmpQMtrIUWivtYuVMnp/W/yA==}
+  ws@8.22.1:
+    resolution: {integrity: sha512-oyL6OPYme/CmiFvNuGzeoxCJ4nOrZE2O1FwM9MWM1AsGri6nLXB2pg+lNA8aLeXMSav0J6eIVS1j6vUPzUtK9g==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
@@ -923,7 +1074,7 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
 
-  '@asamuzakjp/css-color@7.2.0':
+  '@asamuzakjp/css-color@7.1.9':
     dependencies:
       '@csstools/css-calc': 3.4.3(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
       '@csstools/css-color-parser': 4.2.7(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
@@ -1138,7 +1289,7 @@ snapshots:
       '@ethersproject/transactions': 5.8.0
       '@ethersproject/web': 5.8.0
       bech32: 1.1.4
-      ws: 8.22.2
+      ws: 8.22.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -1165,7 +1316,7 @@ snapshots:
       '@ethersproject/logger': 5.8.0
       '@ethersproject/properties': 5.8.0
       bn.js: 5.2.5
-      elliptic: 6.6.1
+      elliptic: 6.6.1(patch_hash=a89b47c527bf8fa285dbe1be0ccb5adebdd1ff8c3e1855b02321f17d48b8f98b)
       hash.js: 1.1.7
 
   '@ethersproject/solidity@5.8.0':
@@ -1346,11 +1497,10 @@ snapshots:
       - react
       - use-sync-external-store
 
-  abitype@0.7.1(typescript@6.0.3)(zod@4.6.7):
+  abitype@0.7.1(typescript@6.0.3):
     dependencies:
       typescript: 6.0.3
-    optionalDependencies:
-      zod: 4.6.7
+      zod: 3.25.76(patch_hash=ad4c3003022f5e80bbfe851d533a06f0ad3658405958bbfe52a8b85547235f94)
 
   abitype@1.2.3(typescript@6.0.3)(zod@4.6.7):
     optionalDependencies:
@@ -1440,7 +1590,7 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
-  elliptic@6.6.1:
+  elliptic@6.6.1(patch_hash=a89b47c527bf8fa285dbe1be0ccb5adebdd1ff8c3e1855b02321f17d48b8f98b):
     dependencies:
       bn.js: 4.12.5
       brorand: 1.1.0
@@ -1511,7 +1661,7 @@ snapshots:
       '@types/node': 22.7.5
       aes-js: 4.0.0-beta.5
       tslib: 2.7.0
-      ws: 8.21.0
+      ws: 8.22.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -1609,13 +1759,13 @@ snapshots:
     dependencies:
       which-typed-array: 1.1.24
 
-  isomorphic-ws@5.0.0(ws@8.22.2):
+  isomorphic-ws@5.0.0(ws@8.22.1):
     dependencies:
-      ws: 8.22.2
+      ws: 8.22.1
 
-  isows@1.0.7(ws@8.21.0):
+  isows@1.0.7(ws@8.22.1):
     dependencies:
-      ws: 8.21.0
+      ws: 8.22.1
 
   js-sha3@0.8.0: {}
 
@@ -1623,7 +1773,7 @@ snapshots:
 
   jsdom@30.1.3(@noble/hashes@1.8.0):
     dependencies:
-      '@asamuzakjp/css-color': 7.2.0
+      '@asamuzakjp/css-color': 7.1.9
       '@asamuzakjp/dom-selector': 10.0.5
       '@bramus/specificity': 2.4.3
       '@csstools/css-syntax-patches-for-csstree': 1.1.16(css-tree@3.2.1)
@@ -1634,7 +1784,7 @@ snapshots:
       html-encoding-sniffer: 7.0.0(@noble/hashes@1.8.0)
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.3
-      parse5: 8.1.1
+      parse5: 8.1.0
       saxes: 6.0.0
       tough-cookie: 6.1.0
       undici: 8.12.4
@@ -1681,7 +1831,7 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  parse5@8.1.1:
+  parse5@8.1.0:
     dependencies:
       entities: 9.0.0
 
@@ -1780,9 +1930,9 @@ snapshots:
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
       abitype: 1.2.3(typescript@6.0.3)(zod@4.6.7)
-      isows: 1.0.7(ws@8.21.0)
+      isows: 1.0.7(ws@8.22.1)
       ox: 0.14.59(typescript@6.0.3)(zod@4.6.7)
-      ws: 8.21.0
+      ws: 8.22.1
     optionalDependencies:
       typescript: 6.0.3
     transitivePeerDependencies:
@@ -1837,16 +1987,15 @@ snapshots:
     dependencies:
       web3-types: 1.10.0
 
-  web3-eth-abi@4.4.1(typescript@6.0.3)(zod@4.6.7):
+  web3-eth-abi@4.4.1(typescript@6.0.3):
     dependencies:
-      abitype: 0.7.1(typescript@6.0.3)(zod@4.6.7)
+      abitype: 0.7.1(typescript@6.0.3)
       web3-errors: 1.3.1
       web3-types: 1.10.0
       web3-utils: 4.3.3
       web3-validator: 2.0.6
     transitivePeerDependencies:
       - typescript
-      - zod
 
   web3-eth-accounts@4.3.1:
     dependencies:
@@ -1858,13 +2007,13 @@ snapshots:
       web3-utils: 4.3.3
       web3-validator: 2.0.6
 
-  web3-eth-contract@4.7.2(typescript@6.0.3)(zod@4.6.7):
+  web3-eth-contract@4.7.2(typescript@6.0.3):
     dependencies:
       '@ethereumjs/rlp': 5.0.2
       web3-core: 4.7.1
       web3-errors: 1.3.1
-      web3-eth: 4.11.1(typescript@6.0.3)(zod@4.6.7)
-      web3-eth-abi: 4.4.1(typescript@6.0.3)(zod@4.6.7)
+      web3-eth: 4.11.1(typescript@6.0.3)
+      web3-eth-abi: 4.4.1(typescript@6.0.3)
       web3-types: 1.10.0
       web3-utils: 4.3.3
       web3-validator: 2.0.6
@@ -1873,15 +2022,14 @@ snapshots:
       - encoding
       - typescript
       - utf-8-validate
-      - zod
 
-  web3-eth-ens@4.4.0(typescript@6.0.3)(zod@4.6.7):
+  web3-eth-ens@4.4.0(typescript@6.0.3):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       web3-core: 4.7.1
       web3-errors: 1.3.1
-      web3-eth: 4.11.1(typescript@6.0.3)(zod@4.6.7)
-      web3-eth-contract: 4.7.2(typescript@6.0.3)(zod@4.6.7)
+      web3-eth: 4.11.1(typescript@6.0.3)
+      web3-eth-contract: 4.7.2(typescript@6.0.3)
       web3-net: 4.1.0
       web3-types: 1.10.0
       web3-utils: 4.3.3
@@ -1891,7 +2039,6 @@ snapshots:
       - encoding
       - typescript
       - utf-8-validate
-      - zod
 
   web3-eth-iban@4.0.7:
     dependencies:
@@ -1900,10 +2047,10 @@ snapshots:
       web3-utils: 4.3.3
       web3-validator: 2.0.6
 
-  web3-eth-personal@4.1.0(typescript@6.0.3)(zod@4.6.7):
+  web3-eth-personal@4.1.0(typescript@6.0.3):
     dependencies:
       web3-core: 4.7.1
-      web3-eth: 4.11.1(typescript@6.0.3)(zod@4.6.7)
+      web3-eth: 4.11.1(typescript@6.0.3)
       web3-rpc-methods: 1.3.0
       web3-types: 1.10.0
       web3-utils: 4.3.3
@@ -1913,14 +2060,13 @@ snapshots:
       - encoding
       - typescript
       - utf-8-validate
-      - zod
 
-  web3-eth@4.11.1(typescript@6.0.3)(zod@4.6.7):
+  web3-eth@4.11.1(typescript@6.0.3):
     dependencies:
       setimmediate: 1.0.5
       web3-core: 4.7.1
       web3-errors: 1.3.1
-      web3-eth-abi: 4.4.1(typescript@6.0.3)(zod@4.6.7)
+      web3-eth-abi: 4.4.1(typescript@6.0.3)
       web3-eth-accounts: 4.3.1
       web3-net: 4.1.0
       web3-providers-ws: 4.0.8
@@ -1933,7 +2079,6 @@ snapshots:
       - encoding
       - typescript
       - utf-8-validate
-      - zod
 
   web3-net@4.1.0:
     dependencies:
@@ -1965,11 +2110,11 @@ snapshots:
   web3-providers-ws@4.0.8:
     dependencies:
       '@types/ws': 8.5.3
-      isomorphic-ws: 5.0.0(ws@8.22.2)
+      isomorphic-ws: 5.0.0(ws@8.22.1)
       web3-errors: 1.3.1
       web3-types: 1.10.0
       web3-utils: 4.3.3
-      ws: 8.22.2
+      ws: 8.22.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -2013,19 +2158,19 @@ snapshots:
       util: 0.12.5
       web3-errors: 1.3.1
       web3-types: 1.10.0
-      zod: 3.25.76
+      zod: 3.25.76(patch_hash=ad4c3003022f5e80bbfe851d533a06f0ad3658405958bbfe52a8b85547235f94)
 
-  web3@4.16.0(typescript@6.0.3)(zod@4.6.7):
+  web3@4.16.0(typescript@6.0.3):
     dependencies:
       web3-core: 4.7.1
       web3-errors: 1.3.1
-      web3-eth: 4.11.1(typescript@6.0.3)(zod@4.6.7)
-      web3-eth-abi: 4.4.1(typescript@6.0.3)(zod@4.6.7)
+      web3-eth: 4.11.1(typescript@6.0.3)
+      web3-eth-abi: 4.4.1(typescript@6.0.3)
       web3-eth-accounts: 4.3.1
-      web3-eth-contract: 4.7.2(typescript@6.0.3)(zod@4.6.7)
-      web3-eth-ens: 4.4.0(typescript@6.0.3)(zod@4.6.7)
+      web3-eth-contract: 4.7.2(typescript@6.0.3)
+      web3-eth-ens: 4.4.0(typescript@6.0.3)
       web3-eth-iban: 4.0.7
-      web3-eth-personal: 4.1.0(typescript@6.0.3)(zod@4.6.7)
+      web3-eth-personal: 4.1.0(typescript@6.0.3)
       web3-net: 4.1.0
       web3-providers-http: 4.2.0
       web3-providers-ws: 4.0.8
@@ -2039,7 +2184,6 @@ snapshots:
       - encoding
       - typescript
       - utf-8-validate
-      - zod
 
   webidl-conversions@3.0.1: {}
 
@@ -2070,15 +2214,13 @@ snapshots:
       gopd: 1.2.0
       has-tostringtag: 1.0.2
 
-  ws@8.21.0: {}
-
-  ws@8.22.2: {}
+  ws@8.22.1: {}
 
   xml-name-validator@5.0.0: {}
 
   xmlchars@2.2.0: {}
 
-  zod@3.25.76: {}
+  zod@3.25.76(patch_hash=ad4c3003022f5e80bbfe851d533a06f0ad3658405958bbfe52a8b85547235f94): {}
 
   zod@4.6.7: {}
 

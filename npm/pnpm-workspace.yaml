@@ -1,0 +1,8 @@
+packages: []
+pnpmfile: ./.pnpmfile.cjs
+
+overrides:
+  "minimatch@>=7 <11.0.1": "^11.0.5"
+
+patchedDependencies:
+  zod@3.25.76: patches/zod@3.25.76.patch

@@ -42,12 +42,7 @@ class ScratchTests(unittest.TestCase):
         cargo = tomllib.loads((self.repo / ".cargo/config.toml").read_text())
         self.assertEqual(cargo["build"]["target-dir"], str(self.storage / "target"))
         self.assertEqual(cargo["env"]["TMPDIR"]["value"], str(self.storage / "tmp"))
-        pnpm = (self.repo / "npm/pnpm-workspace.yaml").read_text()
-        self.assertIn(
-            f"virtualStoreDir: {json.dumps(str(self.storage / 'npm/node_modules/.pnpm'), ensure_ascii=False)}",
-            pnpm,
-        )
-        self.assertNotIn("modulesDir", pnpm)
+        self.assertFalse((self.repo / "npm/pnpm-workspace.yaml").exists())
         # pnpm 12 writes links into node_modules itself, so it is never linked.
         self.assertFalse((self.repo / "npm/node_modules").is_symlink())
         result = subprocess.check_output(
@@ -72,6 +67,27 @@ class ScratchTests(unittest.TestCase):
         self.assertFalse((project / "node_modules").exists())
         # Installed packages stay in storage as the virtual store.
         self.assertTrue((linked / ".pnpm").is_dir())
+
+    def test_shared_pnpm_policy_survives_setup_root_changes_and_disable(self):
+        project = self.repo / "npm"
+        project.mkdir()
+        workspace = project / "pnpm-workspace.yaml"
+        policy = 'overrides:\n  minimatch: "^11.0.5"\n'
+        workspace.write_text(policy)
+        subprocess.run(
+            ["git", "add", "npm/pnpm-workspace.yaml"], cwd=self.repo, check=True
+        )
+
+        self.configure(self.storage)
+        self.assertEqual(workspace.read_text(), policy)
+        self.configure(self.base / "second disk")
+        self.assertEqual(workspace.read_text(), policy)
+        scratch.disable(self.repo)
+        self.assertEqual(workspace.read_text(), policy)
+
+    def test_generated_settings_do_not_replace_project_pnpm_policy(self):
+        files = scratch.generated_files(self.storage)
+        self.assertFalse(any(name.endswith("pnpm-workspace.yaml") for name in files))
 
     def test_unexpected_node_modules_link_is_rejected(self):
         external = self.base / "elsewhere"
