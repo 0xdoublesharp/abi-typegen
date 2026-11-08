@@ -1,12 +1,12 @@
 # @0xdoublesharp/hardhat-abi-typegen
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 Generate typed contract bindings when Hardhat compiles your Solidity contracts.
 This plugin connects Hardhat 2 or 3 to
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme) and installs the
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme) and installs the
 prebuilt native CLI through its npm dependency.
 
 ## Install
@@ -22,7 +22,7 @@ pnpm add -D @0xdoublesharp/hardhat-abi-typegen
 The CLI installer needs `curl` and `tar`; Linux archives target glibc. Generating
 bindings requires no Rust toolchain or RPC connection. Add the SDK for your chosen
 target to the app using the generated code. See the
-[installation guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/installation.md)
+[installation guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/installation.md)
 for platforms and download verification.
 
 ## Quick start
@@ -89,12 +89,12 @@ For multiple targets, use `target: ["viem", "python", "rust"]` or
 `target: "viem,python,rust"`. Each target gets a subdirectory under `out`.
 Disabling `wrappers` keeps primary ABI modules, types, and schemas.
 
-See the [main README](https://github.com/doublesharp/abi-typegen#readme) for the
-[target list](https://github.com/doublesharp/abi-typegen#choose-your-target) and
+See the [main README](https://github.com/0xdoublesharp/abi-typegen#readme) for the
+[target list](https://github.com/0xdoublesharp/abi-typegen#choose-your-target) and
 examples of the generated code. The
-[configuration guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/configuration.md)
-and [native binding guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md)
+[configuration guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/configuration.md)
+and [native binding guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md)
 cover target settings and runtime dependencies. Regenerate bindings after
 upgrading and check the
-[changelog](https://github.com/doublesharp/abi-typegen/blob/main/CHANGELOG.md) for
+[changelog](https://github.com/0xdoublesharp/abi-typegen/blob/main/CHANGELOG.md) for
 API or naming changes.

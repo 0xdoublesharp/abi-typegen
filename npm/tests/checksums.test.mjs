@@ -67,7 +67,7 @@ test("npm preparation verifies all release assets before embedding hashes", asyn
   assert.equal(urls.length, 6);
   assert.ok(
     urls.every((url) =>
-      url.startsWith(`https://github.com/doublesharp/abi-typegen/releases/download/v${version}/`),
+      url.startsWith(`https://github.com/0xdoublesharp/abi-typegen/releases/download/v${version}/`),
     ),
   );
   assert.deepEqual(

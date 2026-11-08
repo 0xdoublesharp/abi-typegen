@@ -85,8 +85,14 @@ workflow.
 
 The release workflow runs semantic-version compatibility checks for the library
 crates. After those checks and the GitHub release succeed, it publishes the core,
-configuration, code generation, runtime, and CLI crates in dependency order with the
-`CARGO_REGISTRY_TOKEN` secret.
+configuration, code generation, runtime, and CLI crates in dependency order.
+
+crates.io publishing uses trusted publishing (OIDC).
+`rust-lang/crates-io-auth-action` exchanges the job's OIDC token for a
+short-lived crates.io token and revokes it when the job ends; no registry token
+is stored in the repository. Each of the five crates needs a trusted publisher
+entry on crates.io for repository `0xdoublesharp/abi-typegen` and workflow
+`release.yml`.
 
 ## Re-running a failed release
 

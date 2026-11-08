@@ -1,11 +1,11 @@
 # @0xdoublesharp/abi-typegen
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 The prebuilt native CLI for
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme). Turn compiled
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme). Turn compiled
 Foundry or Hardhat artifacts into typed code for your app. Generate for one target
 or several, including viem, ethers, Python, Rust, and C++.
 
@@ -27,7 +27,7 @@ Re-running postinstall verifies a fresh archive before replacing the binary.
 Installation needs `curl` and `tar`; Linux archives target glibc. Generating code
 requires no Rust toolchain or RPC connection. The app using the generated code
 needs its target language and SDK. See the
-[installation guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/installation.md)
+[installation guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/installation.md)
 for supported platforms and download troubleshooting.
 
 ## Quick start
@@ -70,12 +70,12 @@ npx abi-typegen help generate     # show generation options
 For automatic generation during Hardhat compilation, use
 [@0xdoublesharp/hardhat-abi-typegen](https://www.npmjs.com/package/@0xdoublesharp/hardhat-abi-typegen).
 Regenerate existing bindings when upgrading and check the
-[changelog](https://github.com/doublesharp/abi-typegen/blob/main/CHANGELOG.md) for
+[changelog](https://github.com/0xdoublesharp/abi-typegen/blob/main/CHANGELOG.md) for
 API or naming changes.
 
-See the [main README](https://github.com/doublesharp/abi-typegen#readme) for the
-[target list](https://github.com/doublesharp/abi-typegen#choose-your-target), usage
+See the [main README](https://github.com/0xdoublesharp/abi-typegen#readme) for the
+[target list](https://github.com/0xdoublesharp/abi-typegen#choose-your-target), usage
 examples, and command reference. The
-[configuration guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/configuration.md)
-and [native binding guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md)
+[configuration guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/configuration.md)
+and [native binding guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md)
 cover target settings and runtime dependencies.

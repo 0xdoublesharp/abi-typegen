@@ -6,7 +6,7 @@ rust-version = "1.99"
 description = "Configuration parsing for abi-typegen"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/doublesharp/abi-typegen"
+repository = "https://github.com/0xdoublesharp/abi-typegen"
 
 [dependencies]
 serde = { workspace = true }

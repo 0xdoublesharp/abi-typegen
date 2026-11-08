@@ -26,6 +26,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   shared hook. Storage setup and disable preserve dependency policy.
 - Give Web3's legacy ABI types their own Zod 3 dependency alongside the generated
   Zod 4 schema target.
+- The repository moved to
+  [0xdoublesharp/abi-typegen](https://github.com/0xdoublesharp/abi-typegen).
+  Crate and npm package metadata, documentation links, and the npm installer's
+  release downloads use the new location.
+- The release workflow publishes crates with crates.io trusted publishing
+  (OIDC) instead of a stored registry token.
 
 ## [0.9.1] - 2026-11-05
 
@@ -517,17 +523,19 @@ Initial release.
   propagation, and `as const` ABI exports for viem/wagmi inference.
 - Hardhat plugin and an npm wrapper that downloads platform-specific binaries.
 
-[Unreleased]: https://github.com/doublesharp/abi-typegen/compare/v0.8.0...HEAD
-[0.8.0]: https://github.com/doublesharp/abi-typegen/compare/v0.7.0...v0.8.0
-[0.7.0]: https://github.com/doublesharp/abi-typegen/compare/v0.6.0...v0.7.0
-[0.6.0]: https://github.com/doublesharp/abi-typegen/compare/v0.5.1...v0.6.0
-[0.5.1]: https://github.com/doublesharp/abi-typegen/compare/v0.5.0...v0.5.1
-[0.5.0]: https://github.com/doublesharp/abi-typegen/compare/v0.4.3...v0.5.0
-[0.4.3]: https://github.com/doublesharp/abi-typegen/compare/v0.4.2...v0.4.3
-[0.4.2]: https://github.com/doublesharp/abi-typegen/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/doublesharp/abi-typegen/compare/v0.4.0...v0.4.1
-[0.4.0]: https://github.com/doublesharp/abi-typegen/compare/v0.3.2...v0.4.0
-[0.3.2]: https://github.com/doublesharp/abi-typegen/compare/v0.3.1...v0.3.2
-[0.3.1]: https://github.com/doublesharp/abi-typegen/compare/v0.2.0...v0.3.1
-[0.2.0]: https://github.com/doublesharp/abi-typegen/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/doublesharp/abi-typegen/releases/tag/v0.1.0
+[Unreleased]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.4.3...v0.5.0
+[0.4.3]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.2.0...v0.3.1
+[0.2.0]: https://github.com/0xdoublesharp/abi-typegen/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/0xdoublesharp/abi-typegen/releases/tag/v0.1.0

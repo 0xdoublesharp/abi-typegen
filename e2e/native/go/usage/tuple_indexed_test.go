@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/doublesharp/abi-typegen/e2e/native/go/usage/tupleindexed"
+	"github.com/0xdoublesharp/abi-typegen/e2e/native/go/usage/tupleindexed"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )

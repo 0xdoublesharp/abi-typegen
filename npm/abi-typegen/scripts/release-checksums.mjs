@@ -23,7 +23,7 @@ export async function prepareChecksums({ version, packageDir, download = downloa
   await rm(destination, { force: true });
   const staging = await mkdtemp(join(packageDir, ".checksums-"));
   try {
-    const base = `https://github.com/doublesharp/abi-typegen/releases/download/v${version}`;
+    const base = `https://github.com/0xdoublesharp/abi-typegen/releases/download/v${version}`;
     const manifestPath = join(staging, "checksums.json");
     await download(`${base}/checksums.json`, manifestPath);
     const manifest = validateChecksums(JSON.parse(await readFile(manifestPath, "utf8")), version);

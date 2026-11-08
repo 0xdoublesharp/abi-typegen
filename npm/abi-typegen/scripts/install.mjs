@@ -19,7 +19,7 @@ try {
     pkg.version,
   );
   const archive = archiveName(target);
-  const url = `https://github.com/doublesharp/abi-typegen/releases/download/v${pkg.version}/${archive}`;
+  const url = `https://github.com/0xdoublesharp/abi-typegen/releases/download/v${pkg.version}/${archive}`;
   console.log(`abi-typegen: downloading and verifying ${target} binary...`);
   await installBinary({
     url,
