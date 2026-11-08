@@ -6,19 +6,22 @@ native archives, creates the GitHub release, and then publishes to crates.io and
 npm. npm publishing waits for the release because npm postinstall uses the package
 version to select a GitHub release archive.
 
-To release, commit the version bump and changelog on `main`, then:
+Merge the release changes into `main` and commit the version bump and changelog,
+then push `main` before the annotated tag:
 
 ```sh
+git push origin main
 git tag -a v<version> -m "Release <version>"
 git push origin v<version>
 ```
 
 ## Versions and validation
 
-Keep the CLI, workspace crates including `abi-typegen-runtime`, internal dependency requirements, and both npm
-packages on the intended release version. Update Cargo.lock along with Rust
-manifest changes. Move the relevant Unreleased changelog entries into the release
-section and use that version for the `v<version>` tag.
+Keep the CLI, all workspace crates including `abi-typegen-runtime`, internal
+dependency requirements, and both npm packages on the intended release version.
+Update `Cargo.lock` files that reference these crates, including the standalone
+fuzz and Rust integration projects. Move the relevant Unreleased changelog entries
+into the release section and use that version for the `v<version>` tag.
 
 The tag workflow checks dependency advisories, licenses, bans, and sources before
 building archives or publishing packages. Run the

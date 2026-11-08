@@ -14,13 +14,12 @@
   <a href="https://www.npmjs.com/package/@0xdoublesharp/abi-typegen"><img alt="npm" src="https://img.shields.io/npm/v/@0xdoublesharp/abi-typegen?label=npm"></a>
 </p>
 
-A Solidity ABI lists the functions your app can call and the events a contract can
-emit. `abi-typegen` turns that list into code for your language, with named
-arguments, return types, and helpers for your Ethereum SDK.
+Generate typed contract bindings from Solidity ABI artifacts. `abi-typegen`
+reads Foundry and Hardhat output and generates named arguments, return types,
+ABI codecs, and helpers for your Ethereum SDK.
 
-It reads Foundry and Hardhat artifacts, runs as one native binary, and can generate
-several targets at once. Your editor can then point out a wrong argument before
-you send a transaction.
+One native binary supports 28 targets across 21 languages and can generate several
+targets at once. Your app keeps its own SDK, RPC connection, and signing flow.
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
@@ -29,14 +28,6 @@ you send a transaction.
   <a href="#keep-bindings-in-sync">CI</a> ·
   <a href="docs/README.md">Docs</a>
 </p>
-
-## Upgrading to 0.9.1
-
-Regenerate bindings after upgrading. Overloaded function aliases follow ascending
-canonical 4-byte selector order, preserving their meanings across Solidity
-compiler ABI reordering. Raw ABI and Hardhat inputs work without compiler method
-identifiers. Downstream overload-order guards can be removed after upgrading.
-Rust source builds require Rust 1.99; prebuilt binaries require no Rust toolchain.
 
 ## Install
 
@@ -143,14 +134,14 @@ with an adapter package.
 
 ### JavaScript and TypeScript
 
-| Library    | Target    | Runtime or SDK                        | What you get                                     |
-| ---------- | --------- | ------------------------------------- | ------------------------------------------------ |
-| Viem       | `viem`    | [viem](https://viem.sh/)                | Typed contract helpers and ABI                   |
-| Wagmi      | `wagmi`   | [wagmi](https://wagmi.sh/)              | React hooks for reads, writes, and events         |
+| Library    | Target    | Runtime or SDK                           | What you get                                     |
+| ---------- | --------- | ---------------------------------------- | ------------------------------------------------ |
+| Viem       | `viem`    | [viem](https://viem.sh/)                 | Typed contract helpers and ABI                   |
+| Wagmi      | `wagmi`   | [wagmi](https://wagmi.sh/)               | React hooks for reads, writes, and events        |
 | Ethers v6  | `ethers`  | [ethers v6](https://docs.ethers.org/v6/) | Typed contract interfaces and connection helpers |
 | Ethers v5  | `ethers5` | [ethers v5](https://docs.ethers.org/v5/) | Typed contract interfaces and connection helpers |
 | Web3.js v4 | `web3js`  | [web3.js v4](https://docs.web3js.org/)   | Typed contract methods                           |
-| Zod 4      | `zod`     | [Zod 4](https://zod.dev/)               | Validation schemas and ABI                       |
+| Zod 4      | `zod`     | [Zod 4](https://zod.dev/)                | Validation schemas and ABI                       |
 
 ### Native languages
 
@@ -159,7 +150,7 @@ with an adapter package.
 | C        | `c`      | [Shared Rust runtime](docs/native-bindings.md#c-and-c)                                                 | C11 codecs and client helpers with explicit ownership             |
 | C++      | `cpp`    | [Shared Rust runtime](docs/native-bindings.md#c-and-c)                                                 | C++17 codecs and client helpers with automatic cleanup            |
 | C#       | `csharp` | [Nethereum](https://docs.nethereum.com/)                                                               | Typed DTOs, contract methods, and deployment                      |
-| COBOL    | `cobol` |  [GnuCOBOL](https://gnucobol.sourceforge.io/doc/gnucobol.html) | Reads taking one address and returning one uint256 🤷 |
+| COBOL    | `cobol`  | [GnuCOBOL](https://gnucobol.sourceforge.io/doc/gnucobol.html)                                          | Reads taking one address and returning one uint256 🤷             |
 | Dart     | `dart`   | [web3dart](https://pub.dev/packages/web3dart)                                                          | Typed values, codecs, calls, and transactions                     |
 | Elixir   | `elixir` | [Ethers](https://ethers.hexdocs.pm/Ethers.html)                                                        | Transaction data, reads, sends, events, and errors                |
 | F#       | `fsharp` | [Nethereum](https://docs.nethereum.com/)                                                               | Records, ABI codecs, and contract helpers                         |
@@ -176,22 +167,22 @@ with an adapter package.
 
 ### Game engines
 
-| Language | Target   | Runtime or SDK                                                                                                                 | What you get                                                           |
-| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| C#       | `csharp` | [Unity](https://docs.unity3d.com/Manual/index.html) + [Unity adapter](integrations/unity/com.doublesharp.abi-typegen.unity/)      | Typed C# bindings, simulation, receipts, and event polling      |
-| GDScript | `godot`  | [Godot](https://docs.godotengine.org/en/stable/)                                                                                  | Typed GDScript values, async calls, receipts, and event polling |
-| C++      | `unreal` | [Unreal Engine](https://dev.epicgames.com/documentation/en-us/unreal-engine/)                                                     | Typed C++/Blueprint codecs, async reads, and event watchers            |
+| Language | Target   | Runtime or SDK                                                                                                               | What you get                                                    |
+| -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| C#       | `csharp` | [Unity](https://docs.unity3d.com/Manual/index.html) + [Unity adapter](integrations/unity/com.doublesharp.abi-typegen.unity/) | Typed C# bindings, simulation, receipts, and event polling      |
+| GDScript | `godot`  | [Godot](https://docs.godotengine.org/en/stable/)                                                                             | Typed GDScript values, async calls, receipts, and event polling |
+| C++      | `unreal` | [Unreal Engine](https://dev.epicgames.com/documentation/en-us/unreal-engine/)                                                | Typed C++/Blueprint codecs, async reads, and event watchers     |
 
 See [engine packages](integrations/README.md) for setup and
 [native bindings](docs/native-bindings.md) for supported features and platforms.
 
 ### Shell and ABI formats
 
-| Language | Target     | Runtime or SDK                                                                                           | What you get                                                      |
-| -------- | ---------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Language | Target     | Runtime or SDK                                                                                                | What you get                                                        |
+| -------- | ---------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Bash     | `shell`    | [Bash](https://www.gnu.org/software/bash/manual/bash.html) and [Foundry cast](https://www.getfoundry.sh/cast) | Sourceable helpers for encoding, reads, sends, deployment, and logs |
-| Solidity | `solidity` | [Solidity](https://docs.soliditylang.org/en/latest/)                                                       | Interfaces, tuple structs, events, and errors                      |
-| YAML     | `yaml`     | [YAML](https://yaml.org/)                                                                                 | Readable ABI descriptions                                         |
+| Solidity | `solidity` | [Solidity](https://docs.soliditylang.org/en/latest/)                                                          | Interfaces, tuple structs, events, and errors                       |
+| YAML     | `yaml`     | [YAML](https://yaml.org/)                                                                                     | Readable ABI descriptions                                           |
 
 Zod, Solidity, and YAML describe or validate contracts; they do not submit
 transactions. See [native bindings](docs/native-bindings.md) for SDK versions
@@ -262,90 +253,10 @@ Write helpers build transactions for your signing flow. Other targets expose
 their SDK's transaction or operation types. A submitted transaction hash is not
 proof of success; check the mined receipt.
 
-### Call or sign with PHP
-
-The PHP target generates ABI codecs and a small JSON-RPC client. Install its
-runtime dependencies, generate the bindings, then pass the RPC URL and signing
-settings to the generated client:
-
-```sh
-composer require brick/math:^1.0 web3p/ethereum-tx:^0.4.3
-abi-typegen generate --target php --out ./generated --package 'App\Contracts'
-```
-
-```php
-<?php
-require __DIR__ . '/vendor/autoload.php';
-foreach (glob(__DIR__ . '/generated/*.php') ?: [] as $file) require_once $file;
-
-use App\Contracts\Token;
-use App\Contracts\TokenClient;
-use App\Contracts\TokenTransactionOptions;
-use Brick\Math\BigInteger;
-
-$client = new TokenClient(
-    getenv('TOKEN_ADDRESS'),
-    getenv('RPC_URL'),
-    getenv('PRIVATE_KEY'),
-    getenv('FROM_ADDRESS'),
-    (int) getenv('CHAIN_ID'),
-);
-$options = new TokenTransactionOptions($client->gasPrice(), BigInteger::of(500000));
-$hash = Token::sendApprove($client, getenv('SPENDER'), BigInteger::of('1000'), $options);
-$receipt = $client->getTransactionReceipt($hash);
-```
-
-PHP 8.2 or newer needs the `curl`, `gmp`, `mbstring`, and `iconv` extensions. The
-client signs legacy EIP-155 transactions locally. It does not build EIP-1559
-transactions or deploy contracts. Poll for a receipt before treating a returned
-transaction hash as success. Event log filters, event decoders, and declared
-custom-error decoders are also generated. The upstream signing library emits
-ArrayAccess return-type deprecation notices on PHP 8.5.
-
-### Read a balance from COBOL
-
-The COBOL target supports read-only functions with one `address`
-input and one `uint256` output, such as `balanceOf(address)`:
-
-```sh
-abi-typegen generate --target cobol --out ./generated
-```
-
-It emits free-form GnuCOBOL subprograms and a C bridge to the shared Rust runtime.
-Results use decimal text in a 78-character buffer. Other functions, events, and
-errors appear as metadata comments. See the [COBOL build guide](docs/native-bindings.md#cobol)
-for dependencies and limitations.
-
-### Link C or C++
-
-The generated headers describe your contract. A shared Rust library handles ABI
-encoding and decoding, while your application supplies networking and signing.
-
-```sh
-abi-typegen generate --target cpp
-cargo build --release -p abi-typegen-runtime
-```
-
-Build the runtime from this repository and link `abi_typegen_runtime` into your
-consumer. C emits `atg_<Name>.h`; C++ also emits `atg_<Name>.hpp`. Both include
-`abi_typegen.h`. The [native guide](docs/native-bindings.md#c-and-c) explains
-result ownership, transport callbacks, and deployment bytecode.
-
-### Use F#, OCaml, or q/kdb+
-
-```sh
-abi-typegen generate --target fsharp,ocaml,q
-```
-
-F# generates Nethereum records, codecs, calls, signed transactions, deployment,
-and event helpers. OCaml uses Zarith integers and the shared Rust runtime for
-codecs; your application supplies transport and signing.
-
-q generates event table schemas, decoders, and log rows for ingestion into kdb+.
-It preserves Solidity integers as 32-byte vectors, so values retain their full
-precision. Your pipeline fetches logs and chooses any numeric conversions.
-See the [native binding guide](docs/native-bindings.md) for dependencies,
-bridge compilation, and generated APIs.
+For C/C++, PHP, F#, OCaml, q/kdb+, and engine examples, see the
+[native binding guide](docs/native-bindings.md). C/C++, OCaml, and q consumers
+build and link `abi-typegen-runtime` separately; use the same version as the
+generator.
 
 ## Know what the bindings cover
 
@@ -474,25 +385,16 @@ Use `abi-typegen --version` to print the installed version and
 `abi-typegen help <command>` for command help. Global `--config PATH` selects a
 configuration file; `--hardhat` selects the Hardhat artifact layout.
 
-Common generation options:
+The [configuration guide](docs/configuration.md) covers generation options,
+contract filters, and target aliases. `watch` uses the target and output settings
+from your configuration. For shell setup, see the
+[Forge integration guide](docs/forge-integration.md).
 
-| Option                    | What it does                                           |
-| ------------------------- | ------------------------------------------------------ |
-| `--artifacts PATH`        | Read compiled artifacts from a directory               |
-| `--out PATH`              | Choose the output directory                            |
-| `--target viem,python`    | Generate one or more targets                           |
-| `--contracts Token,Vault` | Select contracts by name                               |
-| `--exclude '*Test,*Mock'` | Exclude contracts by glob pattern                      |
-| `--package NAME`          | Set the package, namespace, or Unreal module name      |
-| `--no-wrappers`           | Keep metadata and types without contract wrappers      |
-| `--check`                 | Fail if generated output is stale, without writing     |
-| `--clean`                 | Remove stale generated files from the output directory |
+## Upgrading
 
-`watch` reads target and output settings from your configuration.
-`forge-install` supports Bash, Zsh, and Fish; follow the
-[Forge setup guide](docs/forge-integration.md) to load the printed integration.
-See [configuration](docs/configuration.md) for complete examples and
-`abi-typegen help <command>` for command-specific options.
+Regenerate bindings after upgrading and check the [changelog](CHANGELOG.md) for
+API or naming changes. Compile the result against your app's SDK before shipping.
+C/C++, OCaml, and q consumers must update the shared runtime with the generator.
 
 ## Docs and support
 

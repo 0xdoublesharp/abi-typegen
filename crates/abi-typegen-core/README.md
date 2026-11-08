@@ -1,11 +1,11 @@
 # abi-typegen-core
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 Parse Solidity ABI artifacts into the contract types used by
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme). Use this crate to
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme). Use this crate to
 inspect contracts or build tools that work with ABI functions, events, errors,
 tuples, and NatSpec documentation.
 
@@ -49,4 +49,4 @@ and event topics. Pair this crate with
 [abi-typegen-codegen](https://crates.io/crates/abi-typegen-codegen) to render bindings.
 
 See the [API reference](https://docs.rs/abi-typegen-core) and the
-[main README](https://github.com/doublesharp/abi-typegen#readme) for the full generator.
+[main README](https://github.com/0xdoublesharp/abi-typegen#readme) for the full generator.

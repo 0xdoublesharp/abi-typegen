@@ -1,11 +1,11 @@
 # abi-typegen-runtime
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 The shared Rust/Alloy ABI codec behind
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme)'s generated C and
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme)'s generated C and
 C++ bindings and native bridges. It exposes a C ABI for encoding calls and
 constructor data, decoding results, events, and custom errors, and managing ABI
 values and result memory.
@@ -21,10 +21,10 @@ cargo build --release -p abi-typegen-runtime
 The crate builds Rust, static, and shared libraries (`rlib`, `staticlib`, and
 `cdylib`). Link `abi_typegen_runtime` from Cargo's active target directory into
 your native application and include the matching
-[`abi_typegen.h`](https://github.com/doublesharp/abi-typegen/blob/main/crates/abi-typegen-runtime/include/abi_typegen.h).
+[`abi_typegen.h`](https://github.com/0xdoublesharp/abi-typegen/blob/main/crates/abi-typegen-runtime/include/abi_typegen.h).
 Rust projects can add the crate with `cargo add abi-typegen-runtime`.
 
-Install the [generator](https://github.com/doublesharp/abi-typegen#install) to create
+Install the [generator](https://github.com/0xdoublesharp/abi-typegen#install) to create
 contract-specific headers:
 
 ```sh
@@ -47,7 +47,7 @@ the generated transport callbacks. ABI encoding and decoding work offline.
 - C++ helpers manage result ownership through `Decoded<T>` and return encoded
   data as `std::vector<uint8_t>`.
 
-See the [native binding guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c)
+See the [native binding guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c)
 for build details and ownership rules, the [API reference](https://docs.rs/abi-typegen-runtime)
-for exported functions, and the [main README](https://github.com/doublesharp/abi-typegen#readme)
+for exported functions, and the [main README](https://github.com/0xdoublesharp/abi-typegen#readme)
 for other targets.

@@ -18,6 +18,20 @@ For version-specific changes, see the [changelog](../CHANGELOG.md).
 - [Native contract bindings](native-bindings.md): runtime dependencies, C/C++
   ownership, F# and OCaml wrappers, q event tables, and engine integrations.
 
+## Packages
+
+Use the CLI to generate bindings, the Hardhat plugin to generate during compilation,
+or the Rust crates to build your own tooling.
+
+| Package                                                        | Purpose                                         |
+| -------------------------------------------------------------- | ----------------------------------------------- |
+| [npm CLI](../npm/abi-typegen/README.md)                        | Install and run the prebuilt generator          |
+| [Hardhat plugin](../npm/hardhat-abi-typegen/README.md)         | Generate bindings with Hardhat 2 or 3           |
+| [abi-typegen-core](../crates/abi-typegen-core/README.md)       | Parse ABI artifacts into contract types         |
+| [abi-typegen-config](../crates/abi-typegen-config/README.md)   | Read configuration and choose targets           |
+| [abi-typegen-codegen](../crates/abi-typegen-codegen/README.md) | Render contract types into source files         |
+| [abi-typegen-runtime](../crates/abi-typegen-runtime/README.md) | Link the shared ABI codec into native consumers |
+
 ## Contributing
 
 - [Contributing](../CONTRIBUTING.md): bug reports, code conventions, tests, and

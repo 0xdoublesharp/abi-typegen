@@ -1,11 +1,11 @@
 # abi-typegen-config
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 Read `foundry.toml` settings for
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme). This crate provides
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme). This crate provides
 the shared `Config` and `Target` types for artifact paths, output directories,
 target selection, contract filters, and wrapper generation.
 
@@ -45,6 +45,6 @@ section, output defaults to `src/generated`, the target to viem, and wrappers to
 enabled. Target names accept a single string, comma-separated names, or an array.
 Parsing validates target names and target-specific package or namespace rules.
 
-See the [configuration guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/configuration.md),
+See the [configuration guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/configuration.md),
 [API reference](https://docs.rs/abi-typegen-config), and
-[main README](https://github.com/doublesharp/abi-typegen#readme).
+[main README](https://github.com/0xdoublesharp/abi-typegen#readme).

@@ -60,7 +60,8 @@ The Makefile also provides `build`, `test`, `check`, `fmt`, and `lint` targets.
 ## npm development
 
 Use pnpm 12.18.0, pinned in each package manifest and the
-[CI workflow](../.github/workflows/ci.yml), with a supported Node version. Shared
+[CI workflow](../.github/workflows/ci.yml). Use Node 24 for the SDK fixtures; the
+lint job also runs on Node 22. Shared
 security overrides live in each project's `pnpm-workspace.yaml`. The pnpm hook
 reads optional local storage settings without changing those overrides. Install
 the repository's lint tooling:
@@ -87,6 +88,26 @@ publishing a package or downloading production release assets.
 To exercise the local CLI directly, use `cargo run -- ...` or the debug executable.
 An npm source directory is not a release package: it has no pinned checksum
 manifest until [release preparation](releasing.md) runs.
+
+### Dependency security
+
+The development projects declare security overrides and backports in their tracked
+`pnpm-workspace.yaml` files. Legacy Hardhat and Ethers v5 fixtures use local Zod 3
+and elliptic patches; version-based audits still report their original versions.
+See the [patch notes](../npm/patches/README.md) for upstream references and
+regression commands. Keep the patches and their tests when refreshing lockfiles.
+
+Check the published Rust dependency graph with:
+
+```sh
+cargo deny --workspace --all-features check
+```
+
+The standalone Rust integration has its own manifest and lockfile. Its Alloy
+signer still uses `crypto-bigint` 0.5.5, affected by
+[RUSTSEC-2026-0387](https://rustsec.org/advisories/RUSTSEC-2026-0387.html).
+Update that chain when Alloy supports a fixed release; it is absent from the
+active dependency graph of the published workspace crates.
 
 ## Optional checks
 

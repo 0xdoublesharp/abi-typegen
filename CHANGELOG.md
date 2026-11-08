@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Package-specific READMEs for the parser, configuration, code generation, and
+  shared runtime crates, with examples and links to the main guides.
+
 ### Security
 
 - Refresh compatible Rust dependencies, including TLS and QUIC fixes in the Rust
@@ -21,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Shorten the main README, refresh the npm package guides, and index all package
+  documentation. Move upgrade details into the installation guide.
 - Pin npm development projects and CI to pnpm 12.18.0, with security overrides
   in tracked workspace configuration and optional storage settings read by a
   shared hook. Storage setup and disable preserve dependency policy.

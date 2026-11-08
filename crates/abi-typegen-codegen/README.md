@@ -1,11 +1,11 @@
 # abi-typegen-codegen
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 Generate source files from the parsed Solidity contracts used by
-[abi-typegen](https://github.com/doublesharp/abi-typegen#readme). This crate contains
+[abi-typegen](https://github.com/0xdoublesharp/abi-typegen#readme). This crate contains
 the target renderers, type mappings, naming helpers, and ABI output for TypeScript,
 native languages, game engines, and other formats.
 
@@ -48,7 +48,7 @@ multiple targets, call it with a separate configuration for each target. The CLI
 handles artifact discovery, shared support files, output directories, and watching.
 
 The consuming app needs the runtime or SDK for its chosen target. See the
-[target list](https://github.com/doublesharp/abi-typegen#choose-your-target),
-[generated output guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/generated-output.md),
+[target list](https://github.com/0xdoublesharp/abi-typegen#choose-your-target),
+[generated output guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/generated-output.md),
 and [API reference](https://docs.rs/abi-typegen-codegen). The
-[main README](https://github.com/doublesharp/abi-typegen#readme) covers CLI usage.
+[main README](https://github.com/0xdoublesharp/abi-typegen#readme) covers CLI usage.

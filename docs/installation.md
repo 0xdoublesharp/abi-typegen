@@ -78,7 +78,7 @@ manifest is produced and included in the package.
 
 ## Native installation
 
-With a supported Rust toolchain:
+With Rust 1.99 or newer:
 
 ```sh
 cargo install abi-typegen --locked
@@ -91,3 +91,15 @@ require Node; Node is used by the npm launcher and JavaScript project tooling.
 Archives are also available on [GitHub Releases](https://github.com/0xdoublesharp/abi-typegen/releases).
 Match the tag and platform, verify the archive against that release's checksum
 manifest when provided, then extract the executable into a directory on PATH.
+
+## Upgrading
+
+Upgrade the generator through the same package manager or installation method,
+then regenerate and compile your bindings. Check the [changelog](../CHANGELOG.md)
+for changes to generated APIs. C/C++, OCaml, and q consumers must use matching
+generator and `abi-typegen-runtime` versions and headers.
+
+Since 0.9.0, numbered overload aliases follow ascending canonical 4-byte selector
+order. Solidity compiler ABI reordering no longer changes their meanings. Raw
+ABI and Hardhat inputs need no compiler method identifiers, and downstream
+overload-order preprocessing can be removed after upgrading to 0.9.0 or newer.
