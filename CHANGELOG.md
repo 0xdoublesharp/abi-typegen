@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   [0xdoublesharp/abi-typegen](https://github.com/0xdoublesharp/abi-typegen).
   Crate and npm package metadata, documentation links, and the npm installer's
   release downloads use the new location.
+- The release workflow publishes crates with crates.io trusted publishing
+  (OIDC) instead of a stored registry token.
 
 ## [0.9.1] - 2026-11-05
 

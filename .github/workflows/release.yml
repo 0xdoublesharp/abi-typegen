@@ -154,15 +154,24 @@ jobs:
     name: Publish to crates.io
     needs: [release, semver-checks]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.99.1
+
+      # Trusted publishing: exchange the job's OIDC token for a short-lived
+      # crates.io token. The action revokes it when the job ends.
+      - name: Authenticate with crates.io
+        id: crates-io-auth
+        uses: rust-lang/crates-io-auth-action@v1
 
       # Dependency order. Already-published versions are skipped so a failed
       # run can be re-run. `cargo publish` waits until each crate is indexed.
       - name: Publish crates
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           for crate in abi-typegen-core abi-typegen-config abi-typegen-codegen abi-typegen-runtime abi-typegen; do
