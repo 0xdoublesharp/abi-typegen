@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/doublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
+  <img src="https://raw.githubusercontent.com/0xdoublesharp/abi-typegen/main/docs/abi-typegen.png" alt="abi-typegen" width="360" />
 </p>
 
 <p align="center"><strong>Fast typed bindings from Solidity ABI artifacts.</strong></p>
@@ -7,7 +7,7 @@
 
 # @0xdoublesharp/hardhat-abi-typegen
 
-Hardhat plugin for [abi-typegen](https://github.com/doublesharp/abi-typegen). Generates typed bindings from Solidity ABI artifacts on every `hardhat compile`. Downloads the pre-built `abi-typegen` binary for your platform automatically.
+Hardhat plugin for [abi-typegen](https://github.com/0xdoublesharp/abi-typegen). Generates typed bindings from Solidity ABI artifacts on every `hardhat compile`. Downloads the pre-built `abi-typegen` binary for your platform automatically.
 
 ## Upgrading to 0.9.1
 
@@ -116,8 +116,8 @@ with an adapter package.
 
 | Language | Target   | Runtime or SDK                                                                                              | What you get                                                      |
 | -------- | -------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| C        | `c`      | [Shared Rust runtime](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c) | C11 codecs and client helpers with explicit ownership             |
-| C++      | `cpp`    | [Shared Rust runtime](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c) | C++17 codecs and client helpers with automatic cleanup            |
+| C        | `c`      | [Shared Rust runtime](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c) | C11 codecs and client helpers with explicit ownership             |
+| C++      | `cpp`    | [Shared Rust runtime](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md#c-and-c) | C++17 codecs and client helpers with automatic cleanup            |
 | C#       | `csharp` | [Nethereum](https://docs.nethereum.com/)                                                                    | Typed DTOs, contract methods, and deployment                      |
 | Dart     | `dart`   | [web3dart](https://pub.dev/packages/web3dart)                                                               | Typed values, codecs, calls, and transactions                     |
 | Elixir   | `elixir` | [Ethers](https://ethers.hexdocs.pm/Ethers.html)                                                             | Transaction data, reads, sends, events, and errors                |
@@ -137,12 +137,12 @@ with an adapter package.
 
 | Engine                                                                        | Target                                                                                                                                 | What you get                                                             |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| [Unity](https://docs.unity3d.com/Manual/index.html)                           | `csharp` + [Unity adapter](https://github.com/doublesharp/abi-typegen/tree/main/integrations/unity/com.doublesharp.abi-typegen.unity/) | C# bindings with Unity HTTP transport and object lifecycle support       |
+| [Unity](https://docs.unity3d.com/Manual/index.html)                           | `csharp` + [Unity adapter](https://github.com/0xdoublesharp/abi-typegen/tree/main/integrations/unity/com.doublesharp.abi-typegen.unity/) | C# bindings with Unity HTTP transport and object lifecycle support       |
 | [Godot](https://docs.godotengine.org/en/stable/)                              | `godot`                                                                                                                                | GDScript bindings and a native extension for codecs and asynchronous RPC |
 | [Unreal Engine](https://dev.epicgames.com/documentation/en-us/unreal-engine/) | `unreal`                                                                                                                               | C++ codecs and Blueprint nodes for asynchronous scalar reads             |
 
-See [engine packages](https://github.com/doublesharp/abi-typegen/blob/main/integrations/README.md) for setup and
-[native bindings](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md) for supported features and platforms.
+See [engine packages](https://github.com/0xdoublesharp/abi-typegen/blob/main/integrations/README.md) for setup and
+[native bindings](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md) for supported features and platforms.
 
 ### Shell and ABI formats
 
@@ -153,8 +153,8 @@ See [engine packages](https://github.com/doublesharp/abi-typegen/blob/main/integ
 | `yaml`     | [YAML](https://yaml.org/)                                                                                     | Readable ABI descriptions                                           |
 
 Zod, Solidity, and YAML describe or validate contracts; they do not submit
-transactions. See [native bindings](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md) for SDK versions
-and [configuration](https://github.com/doublesharp/abi-typegen/blob/main/docs/configuration.md) for target aliases.
+transactions. See [native bindings](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md) for SDK versions
+and [configuration](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/configuration.md) for target aliases.
 
 ### COBOL
 
@@ -176,7 +176,7 @@ target: ["viem", "python", "rust"]; // array of strings
 - When using `target: "zod"`, install the latest `zod` package in the consuming project
 - Use comma-separated multi-target generation instead of the removed `all` and `all-ts` aliases
 
-See [github.com/doublesharp/abi-typegen](https://github.com/doublesharp/abi-typegen) for full documentation.
+See [github.com/0xdoublesharp/abi-typegen](https://github.com/0xdoublesharp/abi-typegen) for full documentation.
 
 ## Native contract bindings
 
@@ -188,5 +188,5 @@ caller-supplied transport/signing adapter. OCaml uses Zarith integers and the
 shared runtime with application-supplied transport. q/kdb+ generates event schemas,
 decoders, and log rows; it does not include an RPC client. OCaml and q also require
 compiled bridges linked to the shared runtime. `--no-wrappers` preserves primary
-ABI metadata, value types, and q table schemas. See the [native binding guide](https://github.com/doublesharp/abi-typegen/blob/main/docs/native-bindings.md)
+ABI metadata, value types, and q table schemas. See the [native binding guide](https://github.com/0xdoublesharp/abi-typegen/blob/main/docs/native-bindings.md)
 for dependencies, ownership rules, supported features, and SDK limits.

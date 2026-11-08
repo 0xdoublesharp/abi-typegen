@@ -3,7 +3,7 @@ package usage
 import (
 	"testing"
 
-	"github.com/doublesharp/abi-typegen/e2e/native/go/contracts"
+	"github.com/0xdoublesharp/abi-typegen/e2e/native/go/contracts"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )

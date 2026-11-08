@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/doublesharp/abi-typegen",
+    "url": "https://github.com/0xdoublesharp/abi-typegen",
     "directory": "npm/abi-typegen"
   },
   "keywords": [

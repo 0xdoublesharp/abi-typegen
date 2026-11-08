@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/doublesharp/abi-typegen/e2e/native/go/contracts"
+	"github.com/0xdoublesharp/abi-typegen/e2e/native/go/contracts"
 )
 
 // Check parses the embedded ABI and compares it with the generated constants.

@@ -1,4 +1,4 @@
-module github.com/doublesharp/abi-typegen/e2e/native/go
+module github.com/0xdoublesharp/abi-typegen/e2e/native/go
 
 go 1.25.0
 

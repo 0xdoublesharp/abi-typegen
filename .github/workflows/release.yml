@@ -166,7 +166,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           for crate in abi-typegen-core abi-typegen-config abi-typegen-codegen abi-typegen-runtime abi-typegen; do
-            if curl -sf -A "abi-typegen-release (github.com/doublesharp/abi-typegen)" \
+            if curl -sf -A "abi-typegen-release (github.com/0xdoublesharp/abi-typegen)" \
               "https://crates.io/api/v1/crates/$crate/$version" >/dev/null; then
               echo "$crate $version is already on crates.io; skipping"
             else

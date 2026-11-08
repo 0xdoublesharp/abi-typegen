@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.99"
 description = "Core ABI parsing and IR types for abi-typegen"
 license = "MIT"
-repository = "https://github.com/doublesharp/abi-typegen"
+repository = "https://github.com/0xdoublesharp/abi-typegen"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)', 'cfg(coverage_nightly)'] }
