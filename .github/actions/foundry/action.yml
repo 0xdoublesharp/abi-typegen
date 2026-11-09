@@ -1,0 +1,14 @@
+name: Set up Foundry tools
+description: Retain Anvil and Cast while using pinned forgeds for compilation
+runs:
+  using: composite
+  steps:
+    - name: Install Anvil and Cast
+      uses: foundry-rs/foundry-toolchain@v1
+    - name: Install pinned forgeds
+      uses: doublesharp/foundry@e80dc641c6927578663b79fa4892d183febb3b11 # setup-forgeds-v1.0.1
+      with:
+        forgeds-version: 4ca15fcba25aa61a1b436d28b428e30b459f3d56
+        forge-alias: 'true'
+        cache-compilers: 'true'
+        cache-prefix: abi-typegen
