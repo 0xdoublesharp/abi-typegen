@@ -6,9 +6,9 @@ runs:
     - name: Install Anvil and Cast
       uses: foundry-rs/foundry-toolchain@v1
     - name: Install pinned forgeds
-      uses: doublesharp/foundry@e80dc641c6927578663b79fa4892d183febb3b11 # setup-forgeds-v1.0.1
+      uses: doublesharp/foundry@a6e5db53bb23230eceb0600d6c1bdfafc1bfb47e # setup-forgeds-v1.0.2
       with:
-        forgeds-version: 4ca15fcba25aa61a1b436d28b428e30b459f3d56
+        forgeds-version: 9287d4b46d2bbecb17deb41cd5cb385fc31a503c
         forge-alias: 'true'
         cache-compilers: 'true'
         cache-prefix: abi-typegen
