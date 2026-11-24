@@ -441,7 +441,7 @@ fn godot_and_unreal_regressions_avoid_key_mismatch_and_delegate_collisions() {
     assert!(!gd.contains("static func call_deferred("), "{gd}");
     assert!(gd.contains("AbiTypegenOperations.failed_watcher("), "{gd}");
 
-    let ue = unreal::render_unreal_artifacts(&ir, true, "HOST_API");
+    let unreal_art = unreal::render_unreal_artifacts(&ir, true, "HOST_API");
     let symbols = unreal::declared_symbol_names(&ir, true);
     let lower: HashSet<String> = symbols.iter().map(|s| s.to_ascii_lowercase()).collect();
     assert_eq!(
@@ -449,11 +449,18 @@ fn godot_and_unreal_regressions_avoid_key_mismatch_and_delegate_collisions() {
         lower.len(),
         "duplicate Unreal symbols: {symbols:?}"
     );
-    assert!(ue.header.contains("FString FString2"), "{}", ue.header);
+    assert!(
+        unreal_art.header.contains("FString FString2"),
+        "{}",
+        unreal_art.header
+    );
     assert_eq!(
-        ue.header.matches("FGameFooEventWatchFailure").count(),
+        unreal_art
+            .header
+            .matches("FGameFooEventWatchFailure")
+            .count(),
         2, // DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam + UPROPERTY on the read node only
         "{}",
-        ue.header
+        unreal_art.header
     );
 }
