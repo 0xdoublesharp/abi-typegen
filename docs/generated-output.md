@@ -58,9 +58,12 @@ TypeScript ABI modules or an `index.ts` barrel.
 | `unreal`   | `<Name>Unreal.h/.cpp`, `atg_<Name>.h`                  | Reflected ABI values, typed codecs, async reads, and event watchers |
 | `yaml`     | `<Name>.yaml`                                          | Human-readable functions, events, errors, and parameter types                |
 
-The Solidity target reconstructs tuple structs and emits events, errors,
+The Solidity target reconstructs tuple structs, sanitizes reserved Solidity
+keywords in parameter and struct field names, and emits events, errors,
 overloads, and external function signatures. It cannot recover a contract's
-implementation from an ABI.
+implementation from an ABI. The YAML target emits block-mapping YAML documents
+including tuple-array components, contract NatSpec, `fallback`, and `receive`
+entries.
 
 Output APIs vary by language. Rust output includes alloy's contract instance.
 Go, Swift, Kotlin, C#, and F# include SDK-backed callable wrappers by default.

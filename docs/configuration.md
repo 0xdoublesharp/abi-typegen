@@ -34,7 +34,7 @@ exclude = ["*Test", "*Mock"]
 | `wrappers`  | `true`            | Emit callable wrappers for supported targets                      |
 | `contracts` | `[]`              | Exact contract names to include; empty selects all                |
 | `exclude`   | `[]`              | Contract-name patterns to exclude; `*` matches any sequence       |
-| `package`   | `"contracts"`     | Go package name, Kotlin/Java package, or PHP namespace            |
+| `package`   | `"contracts"`     | Go package, Kotlin/Java package, PHP namespace, or Unreal module identifier |
 
 Targets are `viem`, `zod`, `wagmi`, `ethers`, `ethers5`, `web3js`, `python`, `go`,
 `rust`, `swift`, `csharp`, `fsharp`, `ocaml`, `q`, `kotlin`, `java`, `dart`, `php`, `cobol`, `ruby`, `shell`, `elixir`, `godot`, `unreal`, `c`, `cpp`, `solidity`, and `yaml`.
@@ -96,7 +96,7 @@ abi-typegen generate \
 | `--contracts <names>`  | Contract allowlist, repeated or comma-separated                            |
 | `--exclude <patterns>` | Comma-separated contract-name patterns; quote shell wildcards              |
 | `--no-wrappers`        | Suppress wrappers (and Rust's `rpc` instance) while keeping primary output |
-| `--package <name>`     | On `generate` and `diff`, the Go package or Kotlin/Java package            |
+| `--package <name>`     | On `generate` and `diff`, the Go/Kotlin/Java package, PHP namespace, or Unreal module identifier |
 | `--clean`              | On `generate`, remove stale generated files                                |
 | `--check`              | On `generate`, compare output without writing; exit nonzero if stale       |
 | `--config <path>`      | Select a Foundry-style TOML configuration file                             |
@@ -135,22 +135,27 @@ export default defineConfig({
     wrappers: true,
     contracts: [],
     exclude: ["*Test", "*Mock"],
+    package: "contracts",
   },
 });
 ```
 
 Retain your project's compiler, network, and other settings alongside `typegen`.
-For Hardhat 2, import the plugin for its registration side effect and add the same
-`typegen` options to the exported configuration:
+`package` is optional and passes `--package` to the CLI for Go, Kotlin, Java,
+PHP, and Unreal targets. `target` must be a non-empty target string or a
+non-empty array of target strings. For Hardhat 2, import the plugin for its
+registration side effect and add the same `typegen` options to the exported
+configuration:
 
 ```typescript
-import "@0xdoublesharp/hardhat-abi-typegen";
+import "@0xdoublesharp/hardhat-abi-typegen/hardhat2";
 ```
 
-The plugin invokes generation after compilation and passes its configuration to
-the CLI. A direct `abi-typegen --hardhat` invocation does **not** execute or read
-`hardhat.config.ts`; it selects `artifacts/contracts` as the default artifact
-path. Supply target and output flags explicitly when calling the CLI directly:
+The plugin invokes generation after compilation from the Hardhat project root
+and passes its configuration to the CLI. A direct `abi-typegen --hardhat`
+invocation does **not** execute or read `hardhat.config.ts`; it selects
+`artifacts/contracts` as the default artifact path. Supply target and output
+flags explicitly when calling the CLI directly:
 
 ```sh
 abi-typegen generate --hardhat --target viem --out src/generated

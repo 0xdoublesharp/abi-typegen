@@ -77,13 +77,14 @@ You can also run the CLI directly with
 
 ## Configuration
 
-| Option      | Type                 | Default           | What it does                                |
-| ----------- | -------------------- | ----------------- | ------------------------------------------- |
-| `out`       | `string`             | `"src/generated"` | Choose the output directory                 |
-| `target`    | `string \| string[]` | `"viem"`          | Select one or more targets                  |
-| `wrappers`  | `boolean`            | `true`            | Emit callable wrappers where supported      |
-| `contracts` | `string[]`           | `[]`              | Select contracts by name; empty selects all |
-| `exclude`   | `string[]`           | `[]`              | Exclude contracts matching glob patterns    |
+| Option      | Type                 | Default           | What it does                                                                    |
+| ----------- | -------------------- | ----------------- | ------------------------------------------------------------------------------- |
+| `out`       | `string`             | `"src/generated"` | Choose the output directory                                                     |
+| `target`    | `string \| string[]` | `"viem"`          | Select one or more targets (non-empty string or non-empty array)                |
+| `wrappers`  | `boolean`            | `true`            | Emit callable wrappers where supported                                          |
+| `contracts` | `string[]`           | `[]`              | Select contracts by name; empty selects all                                     |
+| `exclude`   | `string[]`           | `[]`              | Exclude contracts matching glob patterns                                        |
+| `package`   | `string`             | `"contracts"`     | Set the Go/Kotlin/Java package, PHP namespace, or Unreal module identifier      |
 
 For multiple targets, use `target: ["viem", "python", "rust"]` or
 `target: "viem,python,rust"`. Each target gets a subdirectory under `out`.

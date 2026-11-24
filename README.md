@@ -296,9 +296,10 @@ exclude = ["*Test", "*Mock"]
 package = "contracts"
 ```
 
-An empty `contracts` list selects all contracts. `package` names the Go package or
-the Kotlin/Java package. The [configuration guide](docs/configuration.md) covers
-Hardhat settings, glob patterns, aliases, and precedence.
+An empty `contracts` list selects all contracts. `package` sets the Go package,
+Kotlin/Java package, PHP namespace, or Unreal module identifier. The
+[configuration guide](docs/configuration.md) covers Hardhat settings, glob
+patterns, aliases, and precedence.
 
 ```sh
 abi-typegen generate \
