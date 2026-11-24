@@ -485,6 +485,8 @@ static func send_receive(client: AbiTypegenClient, _signer: Object, _contract_ad
         "encode_constructor".to_string(),
         "send_fallback".to_string(),
         "send_receive".to_string(),
+        "call_deferred".to_string(),
+        "_abi_value".to_string(),
     ]);
     for ((function, base, overload_index), result_type) in
         function_meta.into_iter().zip(&value_types.results)
@@ -644,9 +646,12 @@ static func decode_{stem}_event_typed(topics: Array, data: PackedByteArray) -> D
     return decoded
 
 static func watch_{stem}(client: AbiTypegenClient, contract_address: String, from_block: int, indexed_topics: Array = [], confirmations: int = 1, poll_seconds: float = 1.0):
+    if client == null:
+        push_error("abi-typegen: watch_{stem} requires an AbiTypegenClient")
+        return null
     var filter := {stem}_event_filter(contract_address, indexed_topics)
     if not filter.get("ok", false):
-        return client.failed_request("invalid_filter", str(filter.get("error", {{}})))
+        return AbiTypegenOperations.failed_watcher(client, "invalid_filter", str(filter.get("error", {{}})))
     return AbiTypegenOperations.watch_events(client, filter["value"], Callable({class_name}, "decode_{stem}_event_typed"), from_block, confirmations, poll_seconds)
 
 # Indexed topics are positional. Supply null for a wildcard or a pre-encoded 32-byte 0x topic.

@@ -120,6 +120,7 @@ void FAbiTypegenPollSession::Poll()
     }
     atg_address NativeAddress{}; FString Error;
     if (!AbiTypegen::ParseAddress(Address, NativeAddress, Error)) { Fail(Error); return; }
+    Address = AbiTypegen::AddressToHex(NativeAddress);
     if (Topics.Num() > 4) { Fail(TEXT("at most four event topics are supported")); return; }
     for (const FString& Topic : Topics)
     {
@@ -208,19 +209,24 @@ void FAbiTypegenPollSession::RequestLogs()
             { Fail(TEXT("invalid, removed, or out-of-range event log")); return; }
             for (const auto& Topic : *JsonTopics)
             {
-                FAbiTypegenWord256 Word; atg_word Native{};
+                FAbiTypegenWord256 Word; TArray<uint8> Bytes;
                 if (!Topic || Topic->Type != EJson::String) { Fail(TEXT("invalid log topic")); return; }
-                Word.Hex = Topic->AsString();
-                if (!Word.TryToWord(Native, Error)) { Fail(Error); return; }
+                const FString TopicText = Topic->AsString();
+                if (!TopicText.StartsWith(TEXT("0x")) || TopicText.Len() != 66 || !AbiTypegen::HexToBytes(TopicText, Bytes, Error))
+                { Fail(TEXT("invalid log topic")); return; }
+                Word.Hex = TopicText.ToLower();
                 Log.Topics.Add(Word);
             }
             if (Log.Topics.Num() < Topics.Num()) { Fail(TEXT("event topics do not match filter")); return; }
             for (int32 I = 0; I < Topics.Num(); ++I) if (!Log.Topics[I].Hex.Equals(Topics[I], ESearchCase::IgnoreCase)) { Fail(TEXT("event topics do not match filter")); return; }
             const FString Identity = Log.BlockHash + TEXT(":") + Quantity(Log.LogIndex);
             if (Identities.Contains(Identity)) { Fail(TEXT("duplicate event log in RPC range")); return; }
-            Identities.Add(Identity); VerifyBlocks.AddUnique(Log.BlockNumber); PendingLogs.Add(MoveTemp(Log));
+            Identities.Add(Identity);
+            if (Log.BlockNumber != RangeEnd) VerifyBlocks.AddUnique(Log.BlockNumber);
+            PendingLogs.Add(MoveTemp(Log));
         }
-        VerifyBlocks.AddUnique(RangeEnd); VerifyNextBlock();
+        // Always verify RangeEnd last so a reorg during earlier block lookups is caught.
+        VerifyBlocks.Add(RangeEnd); VerifyNextBlock();
     });
 }
 void FAbiTypegenPollSession::VerifyNextBlock()

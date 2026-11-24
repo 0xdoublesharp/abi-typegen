@@ -156,6 +156,16 @@ impl ValueTypes {
             types.render_class(out, name, &function.outputs, registry);
         }
         for (event, name) in ir.events.iter().zip(&types.events) {
+            let original_params: Vec<_> = event
+                .inputs
+                .iter()
+                .map(|p| AbiParam {
+                    name: p.name.clone(),
+                    ty: p.ty.clone(),
+                    internal_type: p.internal_type.clone(),
+                })
+                .collect();
+            let raw_names = names(&original_params, registry);
             let params: Vec<_> = event
                 .inputs
                 .iter()
@@ -169,7 +179,7 @@ impl ValueTypes {
                     internal_type: p.internal_type.clone(),
                 })
                 .collect();
-            types.render_class(out, name, &params, registry);
+            types.render_class_with_names(out, name, &params, &raw_names, registry);
         }
         for (error, name) in ir.errors.iter().zip(&types.errors) {
             types.render_class(out, name, &error.inputs, registry);
@@ -233,6 +243,17 @@ impl ValueTypes {
         registry: &TupleRegistry,
     ) {
         let raw_names = names(params, registry);
+        self.render_class_with_names(out, name, params, &raw_names, registry);
+    }
+
+    fn render_class_with_names(
+        &self,
+        out: &mut String,
+        name: &str,
+        params: &[AbiParam],
+        raw_names: &[String],
+        registry: &TupleRegistry,
+    ) {
         let reserved: Vec<_> = MEMBERS
             .iter()
             .copied()
@@ -277,7 +298,7 @@ impl ValueTypes {
         if params.is_empty() {
             out.push_str("        # No ABI fields.\n");
         }
-        for ((param, field), raw) in params.iter().zip(&fields).zip(&raw_names) {
+        for ((param, field), raw) in params.iter().zip(&fields).zip(raw_names) {
             out.push_str(&format!(
                 "        value.{field} = {}\n",
                 self.convert(
@@ -291,7 +312,7 @@ impl ValueTypes {
             ));
         }
         out.push_str("        return value\n\n    ## Convert this value back to the existing ABI dictionary representation.\n    func to_dictionary() -> Dictionary:\n        return {\n");
-        for ((param, field), raw) in params.iter().zip(&fields).zip(&raw_names) {
+        for ((param, field), raw) in params.iter().zip(&fields).zip(raw_names) {
             out.push_str(&format!(
                 "            {}: {},\n",
                 gd_string(raw),
@@ -307,7 +328,7 @@ impl ValueTypes {
         }
         out.push_str("        }\n");
         out.push_str(&format!("\n    ## Convert the raw codec payload, which collapses zero or one ABI fields.\n    static func from_abi_value(data: Variant) -> {name}:\n"));
-        match raw_names.as_slice() {
+        match raw_names {
             [] => out.push_str(&format!("        return {name}.new()\n")),
             [raw] => out.push_str(&format!(
                 "        return from_dictionary({{{}: data}})\n",

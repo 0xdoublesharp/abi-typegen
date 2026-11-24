@@ -9,6 +9,9 @@ const Validation = preload("abi_typegen_rpc_validation.gd")
 
 ## Simulates a transaction at the requested block without signing or submitting it.
 static func simulate(client, transaction: Dictionary, block: String = "latest"):
+    if client == null:
+        push_error("abi-typegen: simulate requires an AbiTypegenClient")
+        return null
     if not Validation.block(block):
         return client.failed_request("invalid_block", "simulation block must be a known tag or canonical signed-64-bit quantity")
     return TypedRequest.wrap(client.call("rpc", "eth_call", [transaction.duplicate(true), block]), _simulation_result)
@@ -20,6 +23,9 @@ static func _simulation_result(value) -> Dictionary:
 
 ## Estimates gas, preserving the exact hexadecimal uint256 quantity.
 static func estimate_gas(client, transaction: Dictionary):
+    if client == null:
+        push_error("abi-typegen: estimate_gas requires an AbiTypegenClient")
+        return null
     return TypedRequest.wrap(client.call("rpc", "eth_estimateGas", [transaction.duplicate(true)]), _gas_result)
 
 static func _gas_result(value) -> Dictionary:
@@ -29,6 +35,9 @@ static func _gas_result(value) -> Dictionary:
 
 ## Waits for a successful canonical receipt with the configured confirmation depth.
 static func wait_for_receipt(client, tx_hash: String, confirmations: int = 1, poll_seconds: float = 1.0, timeout_seconds: float = 120.0) -> AbiTypegenOperation:
+    if client == null:
+        push_error("abi-typegen: wait_for_receipt requires an AbiTypegenClient")
+        return null
     var operation = Operation.new()
     operation.process_mode = Node.PROCESS_MODE_ALWAYS
     operation.client = client
@@ -42,6 +51,9 @@ static func wait_for_receipt(client, tx_hash: String, confirmations: int = 1, po
 
 ## Polls finalized ranges, decoding a complete batch before emitting any event.
 static func watch_events(client, filter: Dictionary, decoder: Callable, from_block: int, confirmations: int = 1, poll_seconds: float = 1.0, block_batch_size: int = 100) -> AbiTypegenEventWatcher:
+    if client == null:
+        push_error("abi-typegen: watch_events requires an AbiTypegenClient")
+        return null
     var watcher = Watcher.new()
     watcher.process_mode = Node.PROCESS_MODE_ALWAYS
     watcher.client = client
@@ -53,4 +65,16 @@ static func watch_events(client, filter: Dictionary, decoder: Callable, from_blo
     watcher.block_batch_size = block_batch_size
     client.add_child(watcher)
     watcher.call_deferred("_start")
+    return watcher
+
+## Returns an event watcher that fails on the next frame with the supplied error.
+static func failed_watcher(client, code: String, message: String) -> AbiTypegenEventWatcher:
+    if client == null:
+        push_error("abi-typegen: failed_watcher requires an AbiTypegenClient")
+        return null
+    var watcher = Watcher.new()
+    watcher.process_mode = Node.PROCESS_MODE_ALWAYS
+    watcher.client = client
+    client.add_child(watcher)
+    watcher.call_deferred("_finish", Validation.failure(code, message))
     return watcher

@@ -226,6 +226,12 @@ fn read_input_names(function: &AbiFunction, contract: &str, stem: &str) -> Vec<S
             "GetName",
             "GetOuter",
             "StaticClass",
+            "FString",
+            "TArray",
+            "UObject",
+            "FAbiTypegenAddress",
+            "FAbiTypegenWord256",
+            "FAbiTypegenBytes",
             &action,
         ],
     )

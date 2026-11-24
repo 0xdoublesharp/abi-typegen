@@ -259,19 +259,41 @@ namespace AbiTypegen.Unity
         private static NewFilterInput SnapshotFilter(NewFilterInput filter)
         {
             if (filter.Address != null) foreach (var address in filter.Address) RequireHex(address, 40, "filter address");
+            object[] normalizedTopics = null;
             if (filter.Topics != null)
             {
                 if (filter.Topics.Length > 4) throw new ArgumentException("At most four filter topics are supported.", nameof(filter));
-                foreach (var topic in filter.Topics)
+                normalizedTopics = new object[filter.Topics.Length];
+                for (var index = 0; index < filter.Topics.Length; index++)
                 {
-                    if (topic == null) continue;
-                    if (topic is string text) RequireHex(text, 64, "filter topic");
-                    else if (topic is string[] alternatives) foreach (var alternative in alternatives) RequireHex(alternative, 64, "filter topic");
+                    var topic = filter.Topics[index];
+                    if (topic == null) { normalizedTopics[index] = null; continue; }
+                    if (topic is string text)
+                    {
+                        RequireHex(text, 64, "filter topic");
+                        normalizedTopics[index] = text;
+                    }
+                    else if (topic is string[] stringAlternatives)
+                    {
+                        foreach (var alternative in stringAlternatives) RequireHex(alternative, 64, "filter topic");
+                        normalizedTopics[index] = stringAlternatives.ToArray();
+                    }
+                    else if (topic is object[] objectAlternatives)
+                    {
+                        var copy = new string[objectAlternatives.Length];
+                        for (var i = 0; i < objectAlternatives.Length; i++)
+                        {
+                            if (!(objectAlternatives[i] is string entry))
+                                throw new ArgumentException("Filter topic alternatives must be 32-byte hex hashes.", nameof(filter));
+                            RequireHex(entry, 64, "filter topic");
+                            copy[i] = entry;
+                        }
+                        normalizedTopics[index] = copy;
+                    }
                     else throw new ArgumentException("Filter topics must be null, a hash or an array of hashes.", nameof(filter));
                 }
             }
-            return new NewFilterInput { Address = filter.Address?.ToArray(),
-                Topics = filter.Topics?.Select(topic => topic is string[] alternatives ? (object)alternatives.ToArray() : topic).ToArray() };
+            return new NewFilterInput { Address = filter.Address?.ToArray(), Topics = normalizedTopics };
         }
 
         private static bool MatchesFilter(FilterLog log, NewFilterInput filter)
@@ -286,7 +308,7 @@ namespace AbiTypegen.Unity
                 if (index >= log.Topics.Length) return false;
                 if (expected == null) continue;
                 if (expected is string hash && !EqualHash(hash, (string)log.Topics[index])) return false;
-                if (expected is string[] alternatives && !alternatives.Any(hash => EqualHash(hash, (string)log.Topics[index]))) return false;
+                if (expected is string[] alternatives && alternatives.Length != 0 && !alternatives.Any(hash => EqualHash(hash, (string)log.Topics[index]))) return false;
             }
             return true;
         }

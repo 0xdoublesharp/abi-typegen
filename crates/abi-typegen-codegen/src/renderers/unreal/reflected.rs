@@ -45,7 +45,17 @@ fn fields<'a>(
     let params = params.collect::<Vec<_>>();
     let names = reflected_names(
         params.iter().map(|(n, _)| *n),
-        &["StaticStruct", "bCompleted", record],
+        &[
+            "StaticStruct",
+            "bCompleted",
+            "FString",
+            "TArray",
+            "UObject",
+            "FAbiTypegenAddress",
+            "FAbiTypegenWord256",
+            "FAbiTypegenBytes",
+            record,
+        ],
     );
     params
         .into_iter()
@@ -122,13 +132,37 @@ pub(super) fn render(ir: &ContractIr, api: &str, wrappers: bool) -> Reflected {
             false,
         );
     }
-    // Event/error overloads also get collision-free, case-insensitive method stems.
-    let mut used = unreal_function_stems(ir)
-        .into_iter()
+    // Event/error overloads also get collision-free, case-insensitive method stems
+    // and cannot collide with read-node delegates or watcher symbols.
+    let function_stems = unreal_function_stems(ir);
+    let mut used = function_stems
+        .iter()
         .map(|s| s.to_ascii_lowercase())
         .collect::<std::collections::HashSet<_>>();
+    let mut used_symbols: std::collections::HashSet<String> =
+        out.symbols.iter().map(|s| s.to_ascii_lowercase()).collect();
+    used_symbols.insert(class.to_ascii_lowercase());
+    if wrappers {
+        for (function, stem) in ir.functions.iter().zip(&function_stems) {
+            if matches!(
+                function.state_mutability,
+                abi_typegen_core::types::StateMutability::View
+                    | abi_typegen_core::types::StateMutability::Pure
+            ) {
+                for sym in [
+                    format!("F{contract}{stem}Result"),
+                    format!("U{contract}{stem}AsyncAction"),
+                    format!("F{contract}{stem}Success"),
+                    format!("F{contract}{stem}Failure"),
+                ] {
+                    used_symbols.insert(sym.to_ascii_lowercase());
+                }
+            }
+        }
+    }
     for event in &ir.events {
-        let stem = claim(&mut used, &format!("{}Event", contract_name(&event.name)));
+        let base = format!("{}Event", contract_name(&event.name));
+        let stem = claim_event_stem(&mut used, &mut used_symbols, &contract, &base, wrappers);
         let result = format!("F{contract}{stem}");
         let outputs = fields(
             event.inputs.iter().map(|p| (p.name.as_str(), &p.ty)),
@@ -184,7 +218,8 @@ pub(super) fn render(ir: &ContractIr, api: &str, wrappers: bool) -> Reflected {
         }
     }
     for error in &ir.errors {
-        let stem = claim(&mut used, &format!("{}Error", contract_name(&error.name)));
+        let base = format!("{}Error", contract_name(&error.name));
+        let stem = claim_error_stem(&mut used, &mut used_symbols, &contract, &base);
         let result = format!("F{contract}{stem}");
         let outputs = fields(
             error.inputs.iter().map(|p| (p.name.as_str(), &p.ty)),
@@ -213,14 +248,54 @@ pub(super) fn render(ir: &ContractIr, api: &str, wrappers: bool) -> Reflected {
     out
 }
 
-fn claim(used: &mut std::collections::HashSet<String>, base: &str) -> String {
+fn claim_event_stem(
+    used: &mut std::collections::HashSet<String>,
+    used_symbols: &mut std::collections::HashSet<String>,
+    contract: &str,
+    base: &str,
+    wrappers: bool,
+) -> String {
     let mut n = base.to_owned();
     let mut i = 2;
-    while !used.insert(n.to_ascii_lowercase()) {
+    loop {
+        let mut syms = vec![format!("F{contract}{n}").to_ascii_lowercase()];
+        if wrappers {
+            syms.extend([
+                format!("U{contract}{n}Watcher").to_ascii_lowercase(),
+                format!("F{contract}{n}Received").to_ascii_lowercase(),
+                format!("F{contract}{n}WatchFailure").to_ascii_lowercase(),
+            ]);
+        }
+        let stem_key = n.to_ascii_lowercase();
+        if !used.contains(&stem_key) && syms.iter().all(|s| !used_symbols.contains(s)) {
+            used.insert(stem_key);
+            used_symbols.extend(syms);
+            return n;
+        }
         n = format!("{base}{i}");
         i += 1;
     }
-    n
+}
+
+fn claim_error_stem(
+    used: &mut std::collections::HashSet<String>,
+    used_symbols: &mut std::collections::HashSet<String>,
+    contract: &str,
+    base: &str,
+) -> String {
+    let mut n = base.to_owned();
+    let mut i = 2;
+    loop {
+        let sym = format!("F{contract}{n}").to_ascii_lowercase();
+        let stem_key = n.to_ascii_lowercase();
+        if !used.contains(&stem_key) && !used_symbols.contains(&sym) {
+            used.insert(stem_key);
+            used_symbols.insert(sym);
+            return n;
+        }
+        n = format!("{base}{i}");
+        i += 1;
+    }
 }
 
 fn emit_record(
@@ -271,7 +346,13 @@ fn emit_type(out: &mut Reflected, ty: &SolType, path: &str, api: &str, wrap: boo
                 cpp = path.into();
             }
         }
-        _ => {}
+        SolType::Bool
+        | SolType::Address
+        | SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::StringType
+        | SolType::Bytes
+        | SolType::BytesN(_) => {}
     }
     let access = if wrap { "X.Values" } else { "X" };
     let mut build = String::new();

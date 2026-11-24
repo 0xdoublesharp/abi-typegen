@@ -53,11 +53,33 @@ func _matches_filter(log: Dictionary) -> bool:
         if topic == null:
             continue
         var choices = topic if typeof(topic) == TYPE_ARRAY else [topic]
+        if choices.is_empty():
+            continue
         var match_topic := false
         for choice in choices:
             if str(choice).to_lower() == str(actual[index]).to_lower():
                 match_topic = true
         if not match_topic:
+            return false
+    return true
+
+func _same_log(left: Dictionary, right: Dictionary) -> bool:
+    if left.get("removed") != right.get("removed"):
+        return false
+    for field in ["blockHash", "transactionHash", "address", "data"]:
+        if str(left.get(field, "")).to_lower() != str(right.get(field, "")).to_lower():
+            return false
+    for field in ["blockNumber", "transactionIndex", "logIndex"]:
+        var a := Validation.quantity(left.get(field))
+        var b := Validation.quantity(right.get(field))
+        if not a.get("ok", false) or not b.get("ok", false) or a["value"] != b["value"]:
+            return false
+    var left_topics: Array = left.get("topics", [])
+    var right_topics: Array = right.get("topics", [])
+    if left_topics.size() != right_topics.size():
+        return false
+    for index in range(left_topics.size()):
+        if str(left_topics[index]).to_lower() != str(right_topics[index]).to_lower():
             return false
     return true
 
@@ -144,7 +166,7 @@ func _start() -> void:
             hashes[number] = block_hash
             var identity: String = entry["identity"]
             if identities.has(identity):
-                if identities[identity] != entry["log"]:
+                if not _same_log(identities[identity], entry["log"]):
                     _finish(Validation.failure("invalid_logs", "duplicate log identity contains conflicting content"))
                     return
                 continue
@@ -222,5 +244,5 @@ func _validate_log(raw_log, first: int, last: int) -> Dictionary:
         return Validation.failure("invalid_logs", "log counters must be canonical signed-64-bit quantities")
     if block_number["value"] < first or block_number["value"] > last or not _matches_filter(log):
         return Validation.failure("invalid_logs", "log does not match the requested range or filter")
-    var identity: String = str(log["blockHash"]).to_lower() + ":" + str(log["transactionHash"]).to_lower() + ":" + str(index["value"])
+    var identity: String = str(log["blockHash"]).to_lower() + ":" + str(index["value"])
     return Validation.success({"log": log, "block": block_number["value"], "transaction": transaction["value"], "index": index["value"], "identity": identity})
