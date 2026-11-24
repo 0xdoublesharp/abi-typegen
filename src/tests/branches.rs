@@ -387,6 +387,29 @@ fn discovery_ignores_directories_debug_files_and_empty_contract_names() {
     assert_eq!(discovered[0].0, "Token");
 }
 
+#[test]
+fn unreal_clean_and_check_track_generated_cpp_files() {
+    let root = tempfile::tempdir().expect("tempdir");
+    let artifacts = root.path().join("artifacts");
+    write_target_matrix_artifact(&artifacts, "Token");
+    let output = root.path().join("output");
+    let config = generated_config(artifacts, output.clone(), Target::Unreal);
+    run_generate(&config, false).expect("generate unreal");
+    assert!(output.join("TokenUnreal.cpp").is_file());
+    let stale_cpp = output.join("StaleUnreal.cpp");
+    std::fs::write(&stale_cpp, "// stale").expect("stale cpp");
+    assert!(
+        run_check(&config).is_err(),
+        "check should flag unexpected .cpp file"
+    );
+    run_generate(&config, true).expect("clean generate");
+    assert!(
+        !stale_cpp.exists(),
+        "clean should remove stale generated .cpp file"
+    );
+    run_check(&config).expect("check passes after clean");
+}
+
 #[cfg(all(unix, not(target_os = "macos")))]
 #[test]
 fn non_utf8_paths_are_ignored_and_preserved_during_discovery_clean_and_diff() {

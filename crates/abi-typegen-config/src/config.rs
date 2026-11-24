@@ -28,8 +28,11 @@ pub enum ConfigError {
     },
 }
 
-/// Package name used by the Go, Kotlin, Java, and PHP targets when none is configured.
+/// Package name used by the Go, Kotlin, Java, PHP, and Unreal targets when none is configured.
 pub const DEFAULT_PACKAGE: &str = "contracts";
+
+/// Canonical list of CLI and TOML target names shown in unknown-target error messages.
+pub const EXPECTED_TARGETS: &str = "viem|zod|wagmi|ethers|ethers5|web3js|python|go|rust|swift|csharp|fsharp|ocaml|q|kotlin|java|dart|php|cobol|godot|unreal|ruby|elixir|shell|solidity|c|cpp|yaml";
 
 const GO_KEYWORDS: &[&str] = &[
     "break",
@@ -427,8 +430,8 @@ impl<'de> Deserialize<'de> for Target {
         let s = String::deserialize(d)?;
         parse_target(&s).ok_or_else(|| {
             serde::de::Error::custom(format!(
-                "unknown target '{}', expected viem|zod|wagmi|ethers|ethers5|web3js|python|go|rust|swift|csharp|fsharp|ocaml|q|kotlin|java|dart|php|cobol|godot|unreal|ruby|elixir|shell|solidity|c|cpp|yaml",
-                s
+                "unknown target '{}', expected {}",
+                s, EXPECTED_TARGETS
             ))
         })
     }
@@ -489,8 +492,8 @@ fn deserialize_targets<'de, D: serde::Deserializer<'de>>(
             while let Some(s) = seq.next_element::<String>()? {
                 let t = parse_target(s.trim()).ok_or_else(|| {
                     de::Error::custom(format!(
-                        "unknown target '{}', expected viem|zod|wagmi|ethers|ethers5|web3js|python|go|rust|swift|csharp|fsharp|ocaml|q|kotlin|java|dart|php|cobol|ruby|elixir|shell|solidity|c|cpp|yaml",
-                        s
+                        "unknown target '{}', expected {}",
+                        s, EXPECTED_TARGETS
                     ))
                 })?;
                 targets.push(t);
@@ -510,12 +513,8 @@ fn parse_targets_from_str(s: &str) -> Result<Vec<Target>, String> {
     let parts: Vec<&str> = s.split(',').map(|p| p.trim()).collect();
     let mut targets = Vec::with_capacity(parts.len());
     for part in parts {
-        let t = parse_target(part).ok_or_else(|| {
-            format!(
-                "unknown target '{}', expected viem|zod|wagmi|ethers|ethers5|web3js|python|go|rust|swift|csharp|fsharp|ocaml|q|kotlin|java|dart|php|cobol|ruby|elixir|shell|solidity|c|cpp|yaml",
-                part
-            )
-        })?;
+        let t = parse_target(part)
+            .ok_or_else(|| format!("unknown target '{}', expected {}", part, EXPECTED_TARGETS))?;
         targets.push(t);
     }
     Ok(targets)
@@ -587,7 +586,7 @@ pub struct Config {
     pub contracts: Vec<String>,
     /// Exclude contracts matching these glob patterns.
     pub exclude: Vec<String>,
-    /// Package or namespace for Go, Kotlin, Java, and PHP output. See [`validate_package`].
+    /// Package, namespace, or module identifier for Go, Kotlin, Java, PHP, and Unreal output. See [`validate_package`].
     pub package: String,
 }
 
@@ -729,6 +728,11 @@ target = "truffle"
         assert!(
             chain.contains("solidity"),
             "error should list solidity: {chain}"
+        );
+        assert!(chain.contains("godot"), "error should list godot: {chain}");
+        assert!(
+            chain.contains("unreal"),
+            "error should list unreal: {chain}"
         );
     }
 

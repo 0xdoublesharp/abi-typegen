@@ -3,7 +3,7 @@
 mod fetch;
 
 use abi_typegen_codegen::{barrel, generate_contract_files};
-use abi_typegen_config::{Config, Target, parse_target, validate_package};
+use abi_typegen_config::{Config, EXPECTED_TARGETS, Target, parse_target, validate_package};
 use abi_typegen_core::parser::parse_artifact;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -448,8 +448,9 @@ fn apply_overrides(
             let trimmed = part.trim();
             let parsed = parse_target(trimmed).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "unknown target '{}', expected viem|zod|wagmi|ethers|ethers5|web3js|python|go|rust|swift|csharp|fsharp|ocaml|q|kotlin|java|dart|php|cobol|ruby|elixir|shell|solidity|c|cpp|yaml",
-                    trimmed
+                    "unknown target '{}', expected {}",
+                    trimmed,
+                    EXPECTED_TARGETS
                 )
             })?;
             targets.push(parsed);
@@ -558,6 +559,7 @@ const GENERATED_EXTENSIONS: &[&str] = &[
     ".cobol.c",
     ".h",
     ".hpp",
+    ".cpp",
     ".yaml",
 ];
 
