@@ -19,7 +19,9 @@ defmodule AbiTypegenElixirE2E.MixProject do
     [
       {:ethers, "== 0.8.0"},
       # Ethers.Signer.Local uses this optional dependency for the Anvil write test.
-      {:ex_secp256k1, "== 0.8.0", only: :test}
+      {:ex_secp256k1, "== 0.8.0", only: :test},
+      # Override idna 7.1.0 to 8.0+ to resolve EEF-CVE-2026-117678.
+      {:idna, "~> 8.0", override: true}
     ]
   end
 end

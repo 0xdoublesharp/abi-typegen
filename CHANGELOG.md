@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Security
+
+- Resolve Elixir E2E advisories by upgrading `mint` to `1.11.0`
+  (`EEF-CVE-2026-91043`, `EEF-CVE-2026-92103`, `EEF-CVE-2026-94194`) and
+  overriding `idna` to `8.0.0` (`EEF-CVE-2026-117678`).
+- Resolve PHP E2E `phpseclib` advisories (`GHSA-w3p9-g4p2-h3rr`,
+  `CVE-2026-84308`) by updating `composer.lock` and `symfony/polyfill-mbstring`.
+- Refresh compatible Rust, Go, Ruby, and pnpm dependencies (`alloy 2.6.1`,
+  `rustls-webpki 0.103.17`, `webpki-roots 0.10.12`, `go-ethereum v1.17.10`,
+  `golang.org/x/crypto v0.59.0`, `viem 2.58.4`, `hardhat 3.22.0`).
+
 ## [0.9.3] - 2026-11-23
 
 ### Security

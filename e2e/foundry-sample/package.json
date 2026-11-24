@@ -15,7 +15,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-query": "^5.108.3",
     "@testing-library/react": "^16.3.3",
     "ethers": "^6.17.0",
     "ethers5": "npm:ethers@5.8.0",
@@ -23,7 +23,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^6.0.3",
-    "viem": "^2.57.16",
+    "viem": "^2.58.4",
     "wagmi": "^3.7.11",
     "web3": "^4.16.0",
     "zod": "^4.6.7"
