@@ -8,6 +8,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-23
+
+### Security
+
+- Update `url` to 2.5.9 to resolve RUSTSEC-2026-0592.
+
+### Added
+
+- Hardhat plugin `typegen.package` option forwarding `--package` to the CLI for
+  Go, Kotlin, Java, PHP, and Unreal targets.
+- `abi_typegen_config::EXPECTED_TARGETS` constant sharing the canonical target
+  list across CLI and TOML error messages.
+
+### Fixed
+
+- **CLI and config:** Include `godot` and `unreal` in unknown-target error
+  messages, reject invalid `--package` values before generation, and normalize
+  Windows path separators during artifact discovery.
+- **TypeScript, Solidity, and YAML:** Match `abitype` positional tuple typing
+  for Viem/Wagmi tuples with unnamed or empty components, escape JSDoc and
+  single-quoted JS literals, avoid `BaseContract` / `filters` / overloaded
+  event collisions in Ethers v5 and v6, deduplicate tuple fields in Zod and
+  Web3.js, sanitize Solidity keywords and struct collisions in generated
+  interfaces, and emit valid block-mapping YAML including tuple-array
+  components, contract NatSpec, `fallback`, and `receive`.
+- **Compiled native targets:** Fix C++17 multi-TU ODR header linkage, C/C++
+  zero-length array loops and `>4` topic filter guards, Rust `sol!` keyword and
+  dollar-sign struct sanitization, Go unnamed event topic decoding, Swift
+  optional payable `value` and namespace escaping, Kotlin/Java/C#/F# zero-length
+  fixed-array dynamic checks, parameter collisions, anonymous event filters,
+  and dollar-sign struct identifiers.
+- **Scripting and mainframe targets:** Remove `web3` imports from Python
+  `--no-wrappers` metadata files and emit nested `TypedDict` types, fix Ruby
+  `Struct#to_abi` self-recursion and string interpolation escaping, harden PHP
+  zero-length fixed arrays and doc comments, fix Dart keyword/filter collisions
+  and case-insensitive topic0 checks, reject invalid Elixir error module
+  aliases before writing, bound OCaml C-bridge recursion depth, and escape
+  COBOL comments and layout identifiers.
+- **Game engine bindings and runtimes:** Fix Godot dictionary key mismatches,
+  inherited method collisions, watcher lifecycle/backoff, and HTTP client
+  teardown; fix Unity RPC operations error handling and cancellation; and fix
+  Unreal case-insensitive symbol collisions, delegate deduplication, and log
+  polling edge cases.
+- **npm packages:** Resolve `System32\tar.exe` on Windows in the binary
+  installer, validate non-empty `typegen.target` in Hardhat 2 and 3 plugins,
+  and invoke the CLI from the Hardhat project root.
+
 ## [0.9.2] - 2026-11-08
 
 ### Added
