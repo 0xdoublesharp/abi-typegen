@@ -1,3 +1,5 @@
+//! Ruby `eth` gem bindings and ABI metadata.
+
 use crate::type_mapper::{overload_suffix, safe_param_name, struct_name_from_internal_type};
 use abi_typegen_core::types::{AbiFunction, ContractIr, SolType, StateMutability, TupleComponent};
 use heck::{ToShoutySnakeCase, ToSnakeCase};
@@ -48,7 +50,7 @@ fn render_ruby_file_inner(ir: &ContractIr, wrappers: bool, legacy_stub: bool) ->
         } else {
             "Ruby ABI metadata"
         },
-        name
+        ruby_comment(name)
     ));
     out.push_str("require \"json\"\n");
     if wrappers || legacy_stub {
@@ -80,7 +82,11 @@ fn render_ruby_file_inner(ir: &ContractIr, wrappers: bool, legacy_stub: bool) ->
                 .map(|field| format!(":{field}"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            let values = fields.join(", ");
+            let values = fields
+                .iter()
+                .map(|field| format!("self[:{field}]"))
+                .collect::<Vec<_>>()
+                .join(", ");
             out.push_str(&format!(
                 "{class_name} = Struct.new({symbols}, keyword_init: true) do\n  def to_abi\n    [{values}]\n  end\nend\n\n"
             ));
@@ -168,7 +174,9 @@ fn render_ruby_file_inner(ir: &ContractIr, wrappers: bool, legacy_stub: bool) ->
     for function in &ir.functions {
         match function.state_mutability {
             StateMutability::Pure | StateMutability::View => view_functions.push(function),
-            _ => write_functions.push(function),
+            StateMutability::NonPayable | StateMutability::Payable => {
+                write_functions.push(function)
+            }
         }
     }
 
@@ -183,7 +191,7 @@ fn render_ruby_file_inner(ir: &ContractIr, wrappers: bool, legacy_stub: bool) ->
             let method = if wrappers {
                 wrapper_names[index].clone()
             } else {
-                resolve_legacy_method_name(function, &view_functions)
+                resolve_legacy_method_name(function, &ir.functions)
             };
             out.push_str(&render_view_function(&method, function, wrappers));
         }
@@ -200,7 +208,7 @@ fn render_ruby_file_inner(ir: &ContractIr, wrappers: bool, legacy_stub: bool) ->
             let method = if wrappers {
                 wrapper_names[index].clone()
             } else {
-                resolve_legacy_method_name(function, &write_functions)
+                resolve_legacy_method_name(function, &ir.functions)
             };
             out.push_str(&render_write_function(&method, function, wrappers));
         }
@@ -288,7 +296,8 @@ fn render_wrapper_extras(ir: &ContractIr) -> String {
             format!("({params})")
         };
         out.push_str(&format!(
-            "\n  # Encodes `{signature}` calldata without RPC.\n  def encode_{method}{declaration}\n    function = _function({sig})\n    encoded = Eth::Abi.encode(function.inputs.map(&:parsed_type), [{args}])\n    Eth::Util.prefix_hex(function.signature + Eth::Util.bin_to_hex(encoded))\n  end\n",
+            "\n  # Encodes `{sig_comment}` calldata without RPC.\n  def encode_{method}{declaration}\n    _abi_function = _function({sig})\n    _abi_encoded = Eth::Abi.encode(_abi_function.inputs.map(&:parsed_type), [{args}])\n    Eth::Util.prefix_hex(_abi_function.signature + Eth::Util.bin_to_hex(_abi_encoded))\n  end\n",
+            sig_comment = ruby_comment(&signature),
             sig = ruby_string(&signature)
         ));
 
@@ -381,7 +390,13 @@ fn render_wrapper_extras(ir: &ContractIr) -> String {
                     SolType::Array(_) | SolType::FixedArray(_, _) | SolType::Tuple(_) => {
                         "_topic_hash_preencoded"
                     }
-                    _ => unreachable!("indexed hash helper only for reference-like types"),
+                    SolType::Bool
+                    | SolType::Address
+                    | SolType::Uint(_)
+                    | SolType::Int(_)
+                    | SolType::BytesN(_) => {
+                        unreachable!("indexed hash helper only for reference-like types")
+                    }
                 };
                 topic_lines.push_str(&format!(
                     "    topics << ({name}.nil? ? nil : {helper}({name}))\n"
@@ -429,7 +444,7 @@ fn render_wrapper_extras(ir: &ContractIr) -> String {
             "    value = transaction.fetch(:value, transaction.fetch(\"value\", 0))\n    raise ArgumentError, \"Transaction value must be a nonnegative Integer\" unless value.is_a?(Integer) && value >= 0\n"
         };
         out.push_str(&format!(
-            "\n  # Builds a deployment transaction with caller-supplied bytecode.\n  def self.build_deployment(bytecode, {params})\n{guard}    code = bytecode.to_s.sub(/\\A0x/i, \"\")\n    encoded = Eth::Abi.encode([{types}], [{args}])\n    transaction.merge(data: \"0x#{{code}}#{{Eth::Util.bin_to_hex(encoded)}}\", value: value)\n  end\n",
+            "\n  # Builds a deployment transaction with caller-supplied bytecode.\n  def self.build_deployment(bytecode, {params})\n{guard}    _abi_bytecode = bytecode.to_s.sub(/\\A0x/i, \"\")\n    _abi_encoded = Eth::Abi.encode([{types}], [{args}])\n    transaction.merge(data: \"0x#{{_abi_bytecode}}#{{Eth::Util.bin_to_hex(_abi_encoded)}}\", value: value)\n  end\n",
             params = params.join(", ")
         ));
     }
@@ -437,13 +452,13 @@ fn render_wrapper_extras(ir: &ContractIr) -> String {
     out
 }
 
-fn resolve_legacy_method_name(function: &AbiFunction, partition: &[&AbiFunction]) -> String {
-    let count = partition
+fn resolve_legacy_method_name(function: &AbiFunction, all_functions: &[AbiFunction]) -> String {
+    let count = all_functions
         .iter()
         .filter(|candidate| candidate.name == function.name)
         .count();
     let snake = function.name.to_snake_case();
-    if count > 1 {
+    let raw = if count > 1 {
         let suffix = overload_suffix(&function.inputs).to_snake_case();
         if suffix.is_empty() {
             snake
@@ -452,7 +467,8 @@ fn resolve_legacy_method_name(function: &AbiFunction, partition: &[&AbiFunction]
         }
     } else {
         snake
-    }
+    };
+    ruby_safe_method_name(&raw)
 }
 
 fn ruby_function_names(ir: &ContractIr) -> Vec<String> {
@@ -604,12 +620,33 @@ fn ruby_constant_stem(name: &str) -> String {
     }
 }
 
+fn ruby_exported(name: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    crate::naming::exported(&cleaned)
+}
+
 fn ruby_contract_name(name: &str) -> String {
-    let exported = crate::naming::exported(name);
+    let exported = ruby_exported(name);
     if exported.is_empty() {
         return "ContractBinding".into();
     }
+    if !exported.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        return format!("Contract{exported}");
+    }
     format!("{exported}Contract")
+}
+
+fn ruby_comment(text: &str) -> String {
+    text.replace(['\r', '\n'], " ")
 }
 
 fn natspec_comment(function: &AbiFunction) -> Option<String> {
@@ -695,11 +732,12 @@ fn collect_tuple_from_type(
                 .and_then(struct_name_from_internal_type)
                 .unwrap_or(fallback_name);
             if !struct_name.is_empty() {
-                let base = format!(
-                    "{}{}",
-                    crate::naming::exported(&ir.name),
-                    crate::naming::exported(struct_name)
-                );
+                let contract_part = ruby_exported(&ir.name);
+                let struct_part = ruby_exported(struct_name);
+                let mut base = format!("{contract_part}{struct_part}");
+                if base.is_empty() || !base.starts_with(|c: char| c.is_ascii_alphabetic()) {
+                    base = format!("Tuple{base}");
+                }
                 let identity = format!("{internal:?}:{ty:?}");
                 if seen.insert(identity) {
                     let mut class_name = base.clone();
@@ -727,7 +765,13 @@ fn collect_tuple_from_type(
         SolType::Array(inner) | SolType::FixedArray(inner, _) => {
             collect_tuple_from_type(ir, fallback_name, inner, internal, seen, used, structs);
         }
-        _ => {}
+        SolType::Bool
+        | SolType::Address
+        | SolType::StringType
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::Uint(_)
+        | SolType::Int(_) => {}
     }
 }
 
@@ -752,7 +796,9 @@ fn indexed_hash(ty: &SolType) -> bool {
 }
 
 fn ruby_string(value: &str) -> String {
-    serde_json::to_string(value).expect("strings serialize")
+    serde_json::to_string(value)
+        .expect("strings serialize")
+        .replace('#', "\\#")
 }
 
 fn overload_indices_by_name(functions: &[AbiFunction]) -> Vec<Option<usize>> {

@@ -219,6 +219,12 @@ pub fn unsupported_sdk_collisions(ir: &ContractIr) -> Vec<String> {
 
     let mut errors = HashMap::new();
     for error in &ir.errors {
+        if !is_valid_elixir_alias(&error.name) {
+            problems.push(format!(
+                "Elixir invalid error module alias: {} is not a valid Elixir alias",
+                error.signature()
+            ));
+        }
         if let Some(previous_signature) = errors.insert(error.name.as_str(), error.signature()) {
             problems.push(format!(
                 "Elixir error module collision: {previous_signature} and {}",
@@ -227,6 +233,11 @@ pub fn unsupported_sdk_collisions(ir: &ContractIr) -> Vec<String> {
         }
     }
     problems
+}
+
+fn is_valid_elixir_alias(name: &str) -> bool {
+    name.bytes().next().is_some_and(|c| c.is_ascii_uppercase())
+        && name.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_')
 }
 
 /// Mirrors `Macro.underscore/1` for Solidity's ASCII identifier alphabet.

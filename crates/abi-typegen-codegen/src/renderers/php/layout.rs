@@ -1,6 +1,6 @@
 //! PHP RPC wrappers plus a generated Solidity ABI codec.
 
-use super::{Php, indexed_hash, php_ident, php_string};
+use super::{Php, indexed_hash, php_doc, php_ident, php_string};
 use crate::naming::{Scope, param_names};
 use abi_typegen_core::types::{ContractIr, StateMutability};
 
@@ -235,7 +235,7 @@ pub(super) fn render_methods(ir: &ContractIr, php: &Php<'_>) -> String {
         let selector = function.selector().to_string();
         out.push_str(&format!(
             "\n    /** Encodes `{}` calldata without RPC. */\n    public static function encode{stem}({args}): string\n    {{\n        return {} . self::encodeSequence([{layouts}], [{values}]);\n    }}\n",
-            function.signature(),
+            php_doc(&function.signature()),
             php_string(&selector)
         ));
 
@@ -252,7 +252,7 @@ pub(super) fn render_methods(ir: &ContractIr, php: &Php<'_>) -> String {
         };
         out.push_str(&format!(
             "    /** Decodes `{}` ABI output. */\n    public static function decode{stem}Result(string $data): {result_ty}\n    {{\n",
-            function.signature()
+            php_doc(&function.signature())
         ));
         if function.outputs.is_empty() {
             out.push_str(
@@ -307,7 +307,7 @@ pub(super) fn render_methods(ir: &ContractIr, php: &Php<'_>) -> String {
                 };
                 let invocation = names.join(", ");
                 let encode_call = format!("self::encode{stem}({invocation})");
-                let return_stmt = if result_ty == "void" {
+                let return_stmt = if function.outputs.is_empty() {
                     format!("self::decode{stem}Result($client->call({encode_call}));")
                 } else {
                     format!("return self::decode{stem}Result($client->call({encode_call}));")
@@ -362,7 +362,7 @@ pub(super) fn render_methods(ir: &ContractIr, php: &Php<'_>) -> String {
 
         out.push_str(&format!(
             "\n    /** Decodes one `{}` event log, or null for another topic. */\n    public static function decode{stem}Event(array|object $log): ?{result_name}\n    {{\n        $topics = self::logField($log, 'topics');\n        $data = self::logField($log, 'data');\n        if (!is_array($topics) || !is_string($data)) throw new \\InvalidArgumentException('invalid log object');\n",
-            event.signature()
+            php_doc(&event.signature())
         ));
         if !event.anonymous {
             out.push_str(&format!(
@@ -490,7 +490,7 @@ pub(super) fn render_methods(ir: &ContractIr, php: &Php<'_>) -> String {
             .join(", ");
         out.push_str(&format!(
             "\n    /** Decodes `{}` custom error, or null for another selector. */\n    public static function decode{stem}Error(string $data): ?{class_name}\n    {{\n        if (strlen($data) < 10 || strcasecmp(substr($data, 0, 10), {}) !== 0) return null;\n        $values = self::decodeTop('0x' . substr($data, 10), [{layouts}]);\n        return new {class_name}({args});\n    }}\n",
-            error.signature(),
+            php_doc(&error.signature()),
             php_string(&error.selector().to_string())
         ));
     }
@@ -683,7 +683,7 @@ const CODEC: &str = r#"
             foreach ($layout['fields'] as $field) if (self::layoutDynamic($field)) return true;
             return false;
         }
-        if ($layout['kind'] === 'array') return $layout['size'] === null || self::layoutDynamic($layout['element']);
+        if ($layout['kind'] === 'array') return $layout['size'] === null || ($layout['size'] > 0 && self::layoutDynamic($layout['element']));
         throw new \InvalidArgumentException('unknown ABI layout');
     }
 

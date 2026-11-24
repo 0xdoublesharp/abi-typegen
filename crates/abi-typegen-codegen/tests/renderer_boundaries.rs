@@ -235,7 +235,7 @@ fn yaml_unnamed_tuple_components_and_natspec_without_notice_preserve_abi_shapes(
     ir.events[0].natspec = Some(NatSpec::default());
     ir.errors[0].natspec = Some(NatSpec::default());
     let source = abi_typegen_codegen::yaml::render_yaml_file(&ir);
-    assert!(source.contains("type: tuple"));
+    assert!(source.contains("type: \"tuple\""));
     assert!(source.contains("type: \"bool\""));
     assert!(!source.contains("name: \"\""));
     assert!(!source.contains("notice:"));

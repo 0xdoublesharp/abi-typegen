@@ -23,7 +23,9 @@ static struct custom_operations result_operations = {
   .compare_ext=custom_compare_ext_default,
   .fixed_length=custom_fixed_length_default
 };
-static atg_value *to_value(value v) {
+#define ATG_OCAML_MAX_DEPTH 64
+static atg_value *to_value(value v, int depth) {
+  if (depth > ATG_OCAML_MAX_DEPTH) return NULL;
   atg_value *r;
   switch (Tag_val(v)) {
     case 0: return atg_value_bool(Bool_val(Field(v,0)));
@@ -32,7 +34,7 @@ static atg_value *to_value(value v) {
     case 3:
       r=atg_value_seq(); if (!r) return NULL;
       for (mlsize_t i=0;i<Wosize_val(Field(v,0));i++) {
-        atg_value *child=to_value(Field(Field(v,0),i));
+        atg_value *child=to_value(Field(Field(v,0),i), depth + 1);
         if (!child) { atg_value_free(r); return NULL; }
         int failed=atg_value_push(r,child); atg_value_free(child);
         if (failed) { atg_value_free(r); return NULL; }
@@ -40,15 +42,16 @@ static atg_value *to_value(value v) {
     default: return NULL;
   }
 }
-static value from_value(const atg_value *v) {
+static value from_value(const atg_value *v, int depth) {
   CAMLparam0(); CAMLlocal3(r,payload,child);
+  if (depth > ATG_OCAML_MAX_DEPTH) caml_failwith("ABI value nesting exceeds limit");
   int kind=atg_value_kind(v);
   if (kind==1) payload=Val_bool(atg_value_get_bool(v));
   else if (kind==2 || kind==3) payload=caml_alloc_initialized_string(kind==2 ? 32 : atg_value_len(v),(const char *)atg_value_data(v));
   else if (kind==4) {
     size_t n=atg_value_len(v); payload=caml_alloc(n,0);
     for (size_t i=0;i<n;i++) Store_field(payload,i,Val_unit);
-    for (size_t i=0;i<n;i++) { child=from_value(atg_value_at(v,i)); Store_field(payload,i,child); }
+    for (size_t i=0;i<n;i++) { child=from_value(atg_value_at(v,i), depth + 1); Store_field(payload,i,child); }
   } else caml_failwith("invalid runtime value");
   r=caml_alloc(1,kind-1); Store_field(r,0,payload); CAMLreturn(r);
 }
@@ -64,7 +67,7 @@ static value request_impl(value request) {
   const uint8_t *data=(const uint8_t *)String_val(Field(request,4));
   size_t len=caml_string_length(Field(request,4));
   if (op==0 || op==4) {
-    atg_value *args=to_value(Field(request,3));
+    atg_value *args=to_value(Field(request,3), 0);
     if (!args) caml_failwith("ABI value allocation failed");
     r=op==0 ? atg_encode(abi,signature,args) : atg_encode_constructor(abi,data,len,args);
     atg_value_free(args);
@@ -81,7 +84,7 @@ static value request_impl(value request) {
   const char *message=atg_result_error(r);
   if (message) { error=caml_copy_string(message); release_result(owner); caml_failwith_value(error); }
   if (op==0 || op==4) { output=caml_alloc_initialized_string(atg_result_len(r),(const char *)atg_result_data(r)); }
-  else output=from_value(atg_result_value(r));
+  else output=from_value(atg_result_value(r), 0);
   release_result(owner); CAMLreturn(output);
 }
 

@@ -318,7 +318,7 @@ fn range_and_size_validation_runs_before_encoding_and_rpc_calls() {
         "signed < -(BigInt.one << 15) || signed > (BigInt.one << 15) - BigInt.one",
         "key.length != 3",
         "values.length != 2",
-        "abiItem3.isNegative || abiItem3.bitLength > 8",
+        "_abiItem3.isNegative || _abiItem3.bitLength > 8",
     ] {
         assert!(source.contains(guard), "missing {guard}");
     }
@@ -434,7 +434,7 @@ fn indexed_reference_hashes_do_not_shift_following_decoded_fields() {
     );
     for expected in [
         "topics.length != 4",
-        "topics[0] != mixedTopic0",
+        "topics[0]?.toLowerCase() != mixedTopic0",
         "key: hexToBytes(topics[1]!)",
         "owner: values[0] as EthereumAddress",
         "label: hexToBytes(topics[3]!)",

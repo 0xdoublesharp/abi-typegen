@@ -8,12 +8,57 @@ use std::collections::{HashMap, HashSet};
 
 mod layout;
 
+pub(super) fn php_doc(text: &str) -> String {
+    text.replace("*/", "*\\/").replace(['\r', '\n'], " ")
+}
+
+fn php_exported(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = exported(&cleaned);
+    if stem.is_empty() {
+        fallback.to_string()
+    } else if !stem.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("{fallback}{stem}")
+    } else {
+        stem
+    }
+}
+
+fn php_constant_base(name: &str, suffix: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let base = cleaned.to_shouty_snake_case();
+    let base = if base.is_empty() {
+        "ITEM".to_string()
+    } else if !base.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("ITEM_{base}")
+    } else {
+        base
+    };
+    format!("{base}{suffix}")
+}
+
 /// Returns the public PHP class name for an ABI contract.
 pub fn namespace_name(name: &str) -> String {
-    let name = exported(name);
-    if name.is_empty() {
-        "Contract".to_string()
-    } else if PHP_RESERVED_CLASS_NAMES
+    let name = php_exported(name, "Contract");
+    if PHP_RESERVED_CLASS_NAMES
         .iter()
         .chain(PHP_RESERVED_IDENTIFIERS.iter())
         .any(|reserved| reserved.eq_ignore_ascii_case(&name))
@@ -88,7 +133,12 @@ fn method_stems(
     let tuple_stems = registry
         .defs()
         .iter()
-        .map(|def| scope.claim_family(&exported(&def.name), &["encode{}Value", "decode{}Value"]))
+        .map(|def| {
+            scope.claim_family(
+                &php_exported(&def.name, "Tuple"),
+                &["encode{}Value", "decode{}Value"],
+            )
+        })
         .collect();
     let function_stems = ir
         .functions
@@ -97,7 +147,7 @@ fn method_stems(
         .map(|(function, index)| {
             let base = format!(
                 "{}{}",
-                exported(&function.name),
+                php_exported(&function.name, "Function"),
                 index.map(|i| i.to_string()).unwrap_or_default()
             );
             let action = match function.state_mutability {
@@ -118,7 +168,7 @@ fn method_stems(
         .map(|(event, index)| {
             let base = format!(
                 "{}{}",
-                exported(&event.name),
+                php_exported(&event.name, "Event"),
                 index.map(|i| i.to_string()).unwrap_or_default()
             );
             scope.claim_family(&base, &["decode{}Event", "filter{}Event"])
@@ -133,7 +183,7 @@ fn method_stems(
         .map(|(error, index)| {
             let base = format!(
                 "{}{}",
-                exported(&error.name),
+                php_exported(&error.name, "Error"),
                 index.map(|i| i.to_string()).unwrap_or_default()
             );
             scope.claim_family(&base, &["decode{}Error"])
@@ -169,7 +219,7 @@ fn class_names(
         .map(|def| {
             (
                 def.name.clone(),
-                scope.claim(&format!("{contract}{}", exported(&def.name))),
+                scope.claim(&format!("{contract}{}", php_exported(&def.name, "Tuple"))),
             )
         })
         .collect();
@@ -359,7 +409,7 @@ pub fn render_php_file(ir: &ContractIr, namespace: &str, wrappers: bool) -> Stri
 
     out.push_str(&format!(
         "\n/** Types and bindings for the `{}` contract. */\nfinal class {contract}\n{{\n",
-        ir.name
+        php_doc(&ir.name)
     ));
     let abi = serde_json::to_string(&ir.raw_abi).expect("JSON values serialize");
     out.push_str(&format!(
@@ -371,7 +421,7 @@ pub fn render_php_file(ir: &ContractIr, namespace: &str, wrappers: bool) -> Stri
     for (function, index) in ir.functions.iter().zip(overload_indices(&ir.functions)) {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", function.name.to_shouty_snake_case(), suffix),
+            &php_constant_base(&function.name, &suffix),
             &["_SIGNATURE", "_SELECTOR"],
         );
         out.push_str(&format!(
@@ -388,7 +438,7 @@ pub fn render_php_file(ir: &ContractIr, namespace: &str, wrappers: bool) -> Stri
     )) {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", event.name.to_shouty_snake_case(), suffix),
+            &php_constant_base(&event.name, &suffix),
             &["_EVENT_SIGNATURE", "_EVENT_TOPIC"],
         );
         out.push_str(&format!(
@@ -407,7 +457,7 @@ pub fn render_php_file(ir: &ContractIr, namespace: &str, wrappers: bool) -> Stri
     )) {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", error.name.to_shouty_snake_case(), suffix),
+            &php_constant_base(&error.name, &suffix),
             &["_ERROR_SIGNATURE", "_ERROR_SELECTOR"],
         );
         out.push_str(&format!(
@@ -630,15 +680,31 @@ impl Php<'_> {
 }
 
 pub(super) fn php_ident(name: &str) -> String {
-    let name = if name.is_empty() { "arg" } else { name };
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let name = if cleaned.is_empty() {
+        "arg".to_string()
+    } else if cleaned.starts_with(|c: char| c.is_ascii_digit()) {
+        format!("_{cleaned}")
+    } else {
+        cleaned
+    };
     if PHP_RESERVED_IDENTIFIERS
         .iter()
-        .any(|reserved| reserved.eq_ignore_ascii_case(name))
+        .any(|reserved| reserved.eq_ignore_ascii_case(&name))
         || name == "_"
     {
         format!("{name}_")
     } else {
-        name.into()
+        name
     }
 }
 

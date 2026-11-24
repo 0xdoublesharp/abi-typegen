@@ -143,7 +143,11 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
             .entry(method_base(&f.name))
             .or_insert(0usize) += 1;
     }
-    let mut used_methods = std::collections::HashSet::new();
+    let mut used_methods = std::collections::HashSet::from([
+        "address".to_string(),
+        "contract".to_string(),
+        "_eventTopic".to_string(),
+    ]);
     let mut function_methods = Vec::new();
     for (i, f) in ir.functions.iter().enumerate() {
         let mut candidate = method_name(
@@ -155,13 +159,25 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
                 .unwrap_or(0)
                 > 1,
         );
-        while !used_methods.insert(candidate.clone()) {
+        while used_methods.contains(&candidate)
+            || used_methods.contains(&format!("{candidate}Signature"))
+            || used_methods.contains(&format!("{candidate}Selector"))
+            || used_methods.contains(&format!("_{candidate}"))
+            || used_methods.contains(&format!("{candidate}Call"))
+            || used_methods.contains(&format!("decode{}Result", candidate.to_upper_camel_case()))
+        {
             candidate = format!("{candidate}ByFunction{i}");
         }
+        used_methods.insert(candidate.clone());
+        used_methods.insert(format!("{candidate}Signature"));
+        used_methods.insert(format!("{candidate}Selector"));
+        used_methods.insert(format!("_{candidate}"));
+        used_methods.insert(format!("{candidate}Call"));
+        used_methods.insert(format!("decode{}Result", candidate.to_upper_camel_case()));
         function_methods.push(candidate);
     }
-    let event_names = unique_event_names(&ir.events);
-    let error_names = unique_error_names(&ir.errors);
+    let event_names = unique_event_names(&ir.events, &mut used_methods);
+    let error_names = unique_error_names(&ir.errors, &mut used_methods);
     for (function_index, f) in ir.functions.iter().enumerate() {
         let meth = function_methods[function_index].clone();
         let args = function_arg_names(f);
@@ -312,7 +328,7 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
             };
             out.push_str(&format!("  {contract}{n}Event decode{n}Event(List<String?> topics, String data) {{\n    if ({topic_count_guard}) throw FormatException('event topic count mismatch');\n"));
             if !e.anonymous {
-                out.push_str(&format!("    if (topics[0] != {event_accessor}Topic0) throw FormatException('event topic0 mismatch');\n"));
+                out.push_str(&format!("    if (topics[0]?.toLowerCase() != {event_accessor}Topic0) throw FormatException('event topic0 mismatch');\n"));
             }
             out.push_str(&format!("    final values = {}Event.decodeResults(topics, data);\n    return {contract}{n}Event(\n",n.to_lower_camel_case()));
             let mut indexed_topic = if e.anonymous { 0 } else { 1 };
@@ -365,9 +381,14 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
                 .enumerate()
                 .filter(|(_, p)| p.indexed)
                 .collect::<Vec<_>>();
+            let filter_field_names = unique_names_with_reserved(
+                indexed_inputs.iter().map(|(_, p)| p.name.as_str()),
+                &["client", "fromBlock", "toBlock", "topics", "address"],
+            );
             let filter_params = indexed_inputs
                 .iter()
-                .map(|(i, p)| {
+                .zip(&filter_field_names)
+                .map(|((_, p), param_name)| {
                     let ty = if matches!(
                         p.ty,
                         SolType::Bytes
@@ -385,7 +406,7 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
                             &contract,
                         )
                     };
-                    format!("{ty}? {}", fields[*i])
+                    format!("{ty}? {param_name}")
                 })
                 .collect::<Vec<_>>();
             out.push_str(&format!("  Future<List<FilterEvent>> get{n}Logs(Web3Client client, {{BlockNum? fromBlock, BlockNum? toBlock{}}}) async {{\n", if filter_params.is_empty() { String::new() } else { format!(", {}", filter_params.join(", ")) }));
@@ -397,8 +418,7 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
             out.push_str(&format!(
                 "    final topics = <List<String?>>{initial_filter};\n"
             ));
-            for (i, p) in &indexed_inputs {
-                let field = &fields[*i];
+            for ((i, p), param_name) in indexed_inputs.iter().zip(&filter_field_names) {
                 let encoded = if matches!(
                     p.ty,
                     SolType::Bytes
@@ -407,14 +427,14 @@ pub fn render_dart_file(ir: &ContractIr, wrappers: bool) -> String {
                         | SolType::FixedArray(_, _)
                         | SolType::Tuple(_)
                 ) {
-                    format!("bytesToHex({field}!, include0x: true, padToEvenLength: true)")
+                    format!("bytesToHex({param_name}!, include0x: true, padToEvenLength: true)")
                 } else {
                     format!(
-                        "_eventTopic({event_accessor}Event.components[{i}].parameter.type, {field}!)"
+                        "_eventTopic({event_accessor}Event.components[{i}].parameter.type, {param_name}!)"
                     )
                 };
                 out.push_str(&format!(
-                    "    topics.add({field} == null ? <String?>[null] : <String?>[{encoded}]);\n"
+                    "    topics.add({param_name} == null ? <String?>[null] : <String?>[{encoded}]);\n"
                 ));
             }
             out.push_str("    return client.getLogs(FilterOptions(address: address, fromBlock: fromBlock, toBlock: toBlock, topics: topics));\n  }\n");
@@ -531,35 +551,53 @@ fn safe_name(s: &str, i: usize) -> String {
         n = format!("value{}", i);
     }
     if [
-        "class",
-        "function",
-        "String",
-        "int",
-        "bool",
-        "void",
-        "import",
-        "switch",
-        "default",
-        "return",
-        "new",
-        "this",
-        "super",
-        "final",
-        "var",
-        "const",
-        "dynamic",
-        "null",
-        "true",
-        "false",
-        "required",
-        "await",
+        "assert",
         "async",
-        "toAbi",
+        "await",
+        "bool",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "dynamic",
+        "else",
+        "enum",
+        "extends",
+        "false",
+        "final",
+        "for",
         "fromAbi",
-        "runtimeType",
+        "function",
         "hashCode",
-        "toString",
+        "if",
+        "import",
+        "in",
+        "int",
+        "is",
+        "new",
         "noSuchMethod",
+        "null",
+        "required",
+        "rethrow",
+        "return",
+        "runtimeType",
+        "String",
+        "super",
+        "switch",
+        "this",
+        "throw",
+        "toAbi",
+        "toString",
+        "true",
+        "try",
+        "var",
+        "void",
+        "while",
+        "with",
     ]
     .contains(&n.as_str())
     {
@@ -590,7 +628,7 @@ fn method_name(f: &abi_typegen_core::types::AbiFunction, index: usize, overloade
     }
 }
 fn method_base(name: &str) -> String {
-    let base = safe_name(name, 0).to_lower_camel_case();
+    let base = safe_name(name, 0);
     if [
         "address",
         "contract",
@@ -641,11 +679,35 @@ fn function_arg_names(f: &abi_typegen_core::types::AbiFunction) -> Vec<String> {
         .collect()
 }
 
-fn unique_event_names(events: &[abi_typegen_core::types::AbiEvent]) -> Vec<String> {
+fn dart_pascal_stem(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = cleaned.to_upper_camel_case();
+    if stem.is_empty() {
+        fallback.to_string()
+    } else if !stem.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("{fallback}{stem}")
+    } else {
+        stem
+    }
+}
+
+fn unique_event_names(
+    events: &[abi_typegen_core::types::AbiEvent],
+    used_members: &mut std::collections::HashSet<String>,
+) -> Vec<String> {
     let mut counts = std::collections::HashMap::new();
     for event in events {
         *counts
-            .entry(event.name.to_upper_camel_case())
+            .entry(dart_pascal_stem(&event.name, "Event"))
             .or_insert(0usize) += 1;
     }
     let mut used = std::collections::HashSet::new();
@@ -653,7 +715,7 @@ fn unique_event_names(events: &[abi_typegen_core::types::AbiEvent]) -> Vec<Strin
         .iter()
         .enumerate()
         .map(|(i, event)| {
-            let mut name = event.name.to_upper_camel_case();
+            let mut name = dart_pascal_stem(&event.name, "Event");
             if counts.get(&name).copied().unwrap_or(0) > 1 {
                 let suffix = event
                     .inputs
@@ -671,19 +733,32 @@ fn unique_event_names(events: &[abi_typegen_core::types::AbiEvent]) -> Vec<Strin
                     }
                 );
             }
-            while !used.insert(name.clone()) {
+            while used.contains(&name)
+                || used_members.contains(&format!("{}Topic0", name.to_lower_camel_case()))
+                || used_members.contains(&format!("{}Event", name.to_lower_camel_case()))
+                || used_members.contains(&format!("decode{name}Event"))
+                || used_members.contains(&format!("get{name}Logs"))
+            {
                 name = format!("{name}Event{i}");
             }
+            used.insert(name.clone());
+            used_members.insert(format!("{}Topic0", name.to_lower_camel_case()));
+            used_members.insert(format!("{}Event", name.to_lower_camel_case()));
+            used_members.insert(format!("decode{name}Event"));
+            used_members.insert(format!("get{name}Logs"));
             name
         })
         .collect()
 }
 
-fn unique_error_names(errors: &[abi_typegen_core::types::AbiError]) -> Vec<String> {
+fn unique_error_names(
+    errors: &[abi_typegen_core::types::AbiError],
+    used_members: &mut std::collections::HashSet<String>,
+) -> Vec<String> {
     let mut counts = std::collections::HashMap::new();
     for error in errors {
         *counts
-            .entry(error.name.to_upper_camel_case())
+            .entry(dart_pascal_stem(&error.name, "Error"))
             .or_insert(0usize) += 1;
     }
     let mut used = std::collections::HashSet::new();
@@ -691,7 +766,7 @@ fn unique_error_names(errors: &[abi_typegen_core::types::AbiError]) -> Vec<Strin
         .iter()
         .enumerate()
         .map(|(i, error)| {
-            let mut name = error.name.to_upper_camel_case();
+            let mut name = dart_pascal_stem(&error.name, "Error");
             if counts.get(&name).copied().unwrap_or(0) > 1 {
                 let suffix = error
                     .inputs
@@ -709,9 +784,15 @@ fn unique_error_names(errors: &[abi_typegen_core::types::AbiError]) -> Vec<Strin
                     }
                 );
             }
-            while !used.insert(name.clone()) {
+            while used.contains(&name)
+                || used_members.contains(&format!("_{name}Error"))
+                || used_members.contains(&format!("decode{name}Error"))
+            {
                 name = format!("{name}Error{i}");
             }
+            used.insert(name.clone());
+            used_members.insert(format!("_{name}Error"));
+            used_members.insert(format!("decode{name}Error"));
             name
         })
         .collect()
@@ -758,7 +839,13 @@ fn dart_type_with_internal(
             "List<{}>",
             dart_type_with_internal(inner, internal_type, registry, contract)
         ),
-        _ => dart_type(t, registry, contract),
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType => dart_type(t, registry, contract),
     }
 }
 fn to_dynamic(t: &SolType, n: &str) -> String {
@@ -767,7 +854,13 @@ fn to_dynamic(t: &SolType, n: &str) -> String {
         SolType::Array(x) | SolType::FixedArray(x, _) => {
             format!("{n}.map((e) => {}).toList()", to_dynamic(x, "e"))
         }
-        _ => n.into(),
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType => n.into(),
     }
 }
 
@@ -782,7 +875,11 @@ fn static_encoding_length(ty: &SolType) -> Option<usize> {
         SolType::Tuple(components) => components.iter().try_fold(0usize, |total, component| {
             total.checked_add(static_encoding_length(&component.ty)?)
         }),
-        _ => Some(32),
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::BytesN(_) => Some(32),
     }
 }
 
@@ -818,7 +915,7 @@ fn emit_validate_value(
                     dart_string(label)
                 ));
             }
-            let item = format!("abiItem{depth}");
+            let item = format!("_abiItem{depth}");
             out.push_str(&format!("{indent}for (final {item} in {expr}) {{\n"));
             emit_validate_value(
                 out,
@@ -848,7 +945,7 @@ fn emit_validate_value(
                 }
             }
         }
-        _ => {}
+        SolType::Bool | SolType::Address | SolType::Bytes | SolType::StringType => {}
     }
 }
 fn from_dynamic_with_internal(
@@ -869,7 +966,13 @@ fn from_dynamic_with_internal(
             "({value} as List<dynamic>).map((e) => {}).toList()",
             from_dynamic_with_internal(inner, "e".into(), internal_type, registry, contract)
         ),
-        _ => format!(
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType => format!(
             "{value} as {}",
             dart_type_with_internal(t, internal_type, registry, contract)
         ),
@@ -919,7 +1022,15 @@ fn emit_return(
     }
 }
 fn unique_names<'a>(names: impl Iterator<Item = &'a str>) -> Vec<String> {
-    let mut used = std::collections::HashSet::new();
+    unique_names_with_reserved(names, &[])
+}
+
+fn unique_names_with_reserved<'a>(
+    names: impl Iterator<Item = &'a str>,
+    reserved: &[&str],
+) -> Vec<String> {
+    let mut used: std::collections::HashSet<String> =
+        reserved.iter().map(|name| (*name).to_string()).collect();
     names
         .enumerate()
         .map(|(i, n)| {
@@ -978,7 +1089,18 @@ fn raw_abi_signature(entry: &serde_json::Value) -> Option<String> {
 fn raw_abi_type(param: &serde_json::Value) -> Option<String> {
     let ty = param.get("type")?.as_str()?;
     if !ty.starts_with("tuple") {
-        return Some(ty.to_owned());
+        let normalized = if let Some(rest) = ty.strip_prefix("uint")
+            && (rest.is_empty() || rest.starts_with('['))
+        {
+            format!("uint256{rest}")
+        } else if let Some(rest) = ty.strip_prefix("int")
+            && (rest.is_empty() || rest.starts_with('['))
+        {
+            format!("int256{rest}")
+        } else {
+            ty.to_owned()
+        };
+        return Some(normalized);
     }
     let suffix = &ty[5..];
     let components = param.get("components")?.as_array()?;
