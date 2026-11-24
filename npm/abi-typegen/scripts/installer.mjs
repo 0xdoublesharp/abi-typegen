@@ -1,10 +1,21 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { chmod, lstat, mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { sha256File } from "./checksums.mjs";
 
 const exec = promisify(execFile);
+
+function resolveTarCommand() {
+  if (process.platform === "win32") {
+    const windowsTar = join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe");
+    if (existsSync(windowsTar)) {
+      return windowsTar;
+    }
+  }
+  return "tar";
+}
 
 /** Download over HTTPS with four attempts and bounded exponential backoff. */
 export async function downloadFile(url, destination, { run = exec } = {}) {
@@ -48,7 +59,7 @@ export async function downloadFile(url, destination, { run = exec } = {}) {
 
 /** Extract only the expected binary from a verified archive. */
 async function extractBinary(archive, directory, binaryName) {
-  await exec("tar", ["-xf", archive, "-C", directory, "--", binaryName], {
+  await exec(resolveTarCommand(), ["-xf", archive, "-C", directory, "--", binaryName], {
     timeout: 60_000,
     killSignal: "SIGKILL",
     windowsHide: true,

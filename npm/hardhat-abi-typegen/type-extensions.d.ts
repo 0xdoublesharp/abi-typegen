@@ -12,6 +12,8 @@ interface AbiTypegenUserConfig {
   contracts?: string[];
   /** Exclude contracts matching glob patterns. Default: [] */
   exclude?: string[];
+  /** Package/namespace name for Go, Kotlin, Java, PHP, or Unreal module API macro. */
+  package?: string;
 }
 
 interface AbiTypegenConfig {
@@ -20,6 +22,7 @@ interface AbiTypegenConfig {
   wrappers: boolean;
   contracts: string[];
   exclude: string[];
+  package?: string;
 }
 
 declare module "hardhat/types/config" {

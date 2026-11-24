@@ -43,19 +43,22 @@ extendConfig((config, userConfig) => {
   const typegen = userConfig.typegen || {};
   config.typegen = {
     out: typegen.out || "src/generated",
-    target: typegen.target || "viem",
+    target: typegen.target !== undefined ? typegen.target : "viem",
     wrappers: typegen.wrappers !== false,
     contracts: typegen.contracts || [],
     exclude: typegen.exclude || [],
+    package: typegen.package,
   };
 });
+
+const BINARY_NAME = process.platform === "win32" ? "abi-typegen.exe" : "abi-typegen";
 
 // Resolve the binary from @0xdoublesharp/abi-typegen package
 const BINARY = (() => {
   try {
     // Try to find the binary via the companion package
     const binPkg = path.dirname(require.resolve("@0xdoublesharp/abi-typegen/package.json"));
-    const packagedBinary = path.join(binPkg, "bin", "abi-typegen");
+    const packagedBinary = path.join(binPkg, "bin", BINARY_NAME);
     if (existsSync(packagedBinary)) {
       return packagedBinary;
     }
@@ -63,20 +66,24 @@ const BINARY = (() => {
     // Continue to local-development and PATH fallbacks below.
   }
 
-  const sourceCheckoutBinary = path.join(__dirname, "..", "..", "target", "debug", "abi-typegen");
+  const sourceCheckoutBinary = path.join(__dirname, "..", "..", "target", "debug", BINARY_NAME);
   if (existsSync(sourceCheckoutBinary)) {
     return sourceCheckoutBinary;
   }
 
   // Fallback: assume it's on PATH.
-  return "abi-typegen";
+  return BINARY_NAME;
 })();
 
 subtask(TASK_COMPILE_SOLIDITY_COMPILE_JOBS).setAction(async (args, hre, runSuper) => {
   const result = await runSuper(args);
 
   const config = hre.config.typegen;
-  const artifactsDir = path.join(hre.config.paths.artifacts, "contracts");
+  const artifactsDir = hre.config.paths.artifacts;
+  const targetValue = Array.isArray(config.target) ? config.target.join(",") : config.target;
+  if (typeof targetValue !== "string" || targetValue.trim() === "") {
+    throw new Error("abi-typegen: typegen.target must specify at least one target");
+  }
 
   const cliArgs = [
     "generate",
@@ -86,11 +93,15 @@ subtask(TASK_COMPILE_SOLIDITY_COMPILE_JOBS).setAction(async (args, hre, runSuper
     "--out",
     config.out,
     "--target",
-    Array.isArray(config.target) ? config.target.join(",") : config.target,
+    targetValue,
   ];
 
   if (!config.wrappers) {
     cliArgs.push("--no-wrappers");
+  }
+
+  if (config.package) {
+    cliArgs.push("--package", config.package);
   }
 
   for (const name of config.contracts) {
@@ -102,7 +113,7 @@ subtask(TASK_COMPILE_SOLIDITY_COMPILE_JOBS).setAction(async (args, hre, runSuper
   }
 
   try {
-    execFileSync(BINARY, cliArgs, { stdio: "inherit" });
+    execFileSync(BINARY, cliArgs, { cwd: hre.config.paths.root, stdio: "inherit" });
   } catch (err) {
     console.error("abi-typegen: generation failed");
     throw err;

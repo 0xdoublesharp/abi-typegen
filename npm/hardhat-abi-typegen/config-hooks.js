@@ -9,10 +9,11 @@ const DEFAULT_TYPEGEN_CONFIG = {
 function resolveTypegenConfig(typegen = {}) {
   return {
     out: typegen.out || DEFAULT_TYPEGEN_CONFIG.out,
-    target: typegen.target || DEFAULT_TYPEGEN_CONFIG.target,
+    target: typegen.target !== undefined ? typegen.target : DEFAULT_TYPEGEN_CONFIG.target,
     wrappers: typegen.wrappers !== false,
     contracts: typegen.contracts || DEFAULT_TYPEGEN_CONFIG.contracts,
     exclude: typegen.exclude || DEFAULT_TYPEGEN_CONFIG.exclude,
+    package: typegen.package,
   };
 }
 
@@ -32,14 +33,26 @@ function validateStringArray(value, path, errors) {
 }
 
 function validateTarget(value, errors) {
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value === "string") {
+    if (value.trim() === "") {
+      errors.push({
+        path: ["typegen", "target"],
+        message: "Expected a non-empty target string",
+      });
+    }
+    return;
+  }
   if (
-    value !== undefined &&
-    typeof value !== "string" &&
-    (!Array.isArray(value) || value.some((item) => typeof item !== "string"))
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.some((item) => typeof item !== "string" || item.trim() === "")
   ) {
     errors.push({
       path: ["typegen", "target"],
-      message: "Expected a string or an array of strings",
+      message: "Expected a non-empty string or non-empty array of strings",
     });
   }
 }
@@ -60,6 +73,7 @@ export default async () => ({
 
     validateString(typegen.out, ["typegen", "out"], errors);
     validateTarget(typegen.target, errors);
+    validateString(typegen.package, ["typegen", "package"], errors);
 
     if (typegen.wrappers !== undefined && typeof typegen.wrappers !== "boolean") {
       errors.push({ path: ["typegen", "wrappers"], message: "Expected a boolean" });
