@@ -1,8 +1,39 @@
-use super::ethers_common::{function_signature, method_names, overrides_param_name};
+use super::ethers_common::{
+    event_signature, function_signature, is_tuple_property_name, method_names,
+    overrides_param_name, tuple_output_is_intersection,
+};
+use crate::naming::Scope;
 use crate::type_mapper::{property_name, safe_param_names};
 use abi_typegen_core::types::{
     AbiEvent, AbiFunction, AbiParam, ContractIr, SolType, StateMutability,
 };
+use std::collections::HashMap;
+
+const ETHERS5_CONTRACT_MEMBERS: &[&str] = &[
+    "address",
+    "attach",
+    "callStatic",
+    "connect",
+    "deployed",
+    "deployTransaction",
+    "emit",
+    "estimateGas",
+    "fallback",
+    "functions",
+    "interface",
+    "listenerCount",
+    "listeners",
+    "off",
+    "on",
+    "once",
+    "populateTransaction",
+    "provider",
+    "queryFilter",
+    "removeAllListeners",
+    "removeListener",
+    "resolvedAddress",
+    "signer",
+];
 
 /// Maps a Solidity type to its ethers v5 TypeScript representation.
 ///
@@ -32,7 +63,7 @@ fn sol_type_to_ethers5_output(ty: &SolType) -> String {
 
         SolType::Array(inner) => {
             let inner_ts = sol_type_to_ethers5_output(inner);
-            render_array_type(&inner_ts)
+            render_array_type(inner, &inner_ts)
         }
 
         SolType::FixedArray(inner, n) => {
@@ -59,21 +90,24 @@ fn sol_type_to_ethers5_input(ty: &SolType) -> String {
         SolType::Uint(_) | SolType::Int(_) => "BigNumberish".into(),
         SolType::Address => "string".into(),
         SolType::Bytes | SolType::BytesN(_) => "BytesLike".into(),
-        SolType::Array(inner) => {
-            let inner_ts = sol_type_to_ethers5_input(inner);
-            render_array_type(&inner_ts)
-        }
+        SolType::Array(inner) => format!("{}[]", sol_type_to_ethers5_input(inner)),
         SolType::FixedArray(inner, n) => {
             render_tuple_type(std::iter::repeat_with(|| sol_type_to_ethers5_input(inner)).take(*n))
         }
         SolType::Tuple(components) => {
+            if components.iter().all(|c| c.name.is_empty()) {
+                return render_tuple_type(
+                    components.iter().map(|c| sol_type_to_ethers5_input(&c.ty)),
+                );
+            }
+            let mut scope = Scope::default();
             let fields: Vec<String> = components
                 .iter()
                 .enumerate()
                 .map(|(i, c)| {
                     format!(
                         "{}: {}",
-                        property_name(&c.name, i),
+                        scope.claim(&property_name(&c.name, i)),
                         sol_type_to_ethers5_input(&c.ty)
                     )
                 })
@@ -94,27 +128,51 @@ pub fn render_ethers5_file(ir: &ContractIr) -> String {
         ir.name, ir.name
     ));
 
-    // Interface -- extends ethers.Contract
-    out.push_str(&format!(
-        "export interface {}Contract extends ethers.Contract {{\n",
-        ir.name
-    ));
+    let has_filters = !ir.events.is_empty();
+    let names = method_names(&ir.functions, has_filters);
+    let collides_base_member = names
+        .iter()
+        .any(|name| ETHERS5_CONTRACT_MEMBERS.contains(&name.as_str()));
 
-    let names = method_names(&ir.functions);
+    if collides_base_member {
+        out.push_str(&format!("export interface {}Methods {{\n", ir.name));
+    } else {
+        // Interface -- extends ethers.Contract
+        out.push_str(&format!(
+            "export interface {}Contract extends ethers.Contract {{\n",
+            ir.name
+        ));
+    }
+
     for (function, name) in ir.functions.iter().zip(&names) {
         out.push_str(&render_function_sig(name, function));
     }
 
     // Event filters
-    if !ir.events.is_empty() {
+    if has_filters {
+        let mut event_counts: HashMap<&str, usize> = HashMap::new();
+        for event in &ir.events {
+            *event_counts.entry(event.name.as_str()).or_insert(0) += 1;
+        }
         out.push_str("  filters: {\n");
         for event in &ir.events {
-            out.push_str(&render_event_filter(event));
+            out.push_str(&render_event_filter(event, &event.name));
+            if event_counts[event.name.as_str()] > 1 {
+                let sig_key = serde_json::to_string(&event_signature(event))
+                    .expect("event signatures serialize as JSON strings");
+                out.push_str(&render_event_filter(event, &sig_key));
+            }
         }
         out.push_str("  };\n");
     }
 
     out.push_str("}\n\n");
+    if collides_base_member {
+        out.push_str(&format!(
+            "export type {0}Contract = Omit<ethers.Contract, keyof {0}Methods> & {0}Methods;\n\n",
+            ir.name
+        ));
+    }
 
     // connect factory function
     out.push_str(&format!(
@@ -183,14 +241,16 @@ fn render_function_sig(method_name: &str, f: &AbiFunction) -> String {
                 _ => render_multi_output_type(&f.outputs),
             }
         }
-        _ => "Promise<ethers.ContractTransaction>".into(),
+        StateMutability::NonPayable | StateMutability::Payable => {
+            "Promise<ethers.ContractTransaction>".into()
+        }
     };
 
     format!("  {}({}): {};\n", method_name, params, return_type)
 }
 
 /// Renders a single event filter method line for ethers v5.
-fn render_event_filter(event: &AbiEvent) -> String {
+fn render_event_filter(event: &AbiEvent, key: &str) -> String {
     let names = safe_param_names(event.inputs.iter().map(|p| p.name.as_str()));
     let params = event
         .inputs
@@ -212,7 +272,7 @@ fn render_event_filter(event: &AbiEvent) -> String {
         .collect::<Vec<_>>()
         .join(", ");
 
-    format!("    {}({}): ethers.EventFilter;\n", event.name, params)
+    format!("    {key}({params}): ethers.EventFilter;\n")
 }
 
 fn render_multi_output_type(outputs: &[AbiParam]) -> String {
@@ -250,8 +310,8 @@ fn render_tuple_type(items: impl IntoIterator<Item = String>) -> String {
     format!("[{}]", items.into_iter().collect::<Vec<_>>().join(", "))
 }
 
-fn render_array_type(inner: &str) -> String {
-    if inner.contains(" & ") {
+fn render_array_type(inner_sol: &SolType, inner: &str) -> String {
+    if tuple_output_is_intersection(inner_sol) {
         format!("({})[]", inner)
     } else {
         format!("{}[]", inner)
@@ -269,42 +329,6 @@ fn safe_tuple_field_name(name: &str, index: usize) -> Option<String> {
     } else {
         Some(name)
     }
-}
-
-fn is_tuple_property_name(name: &str) -> bool {
-    matches!(
-        name,
-        "length"
-            | "toString"
-            | "toLocaleString"
-            | "pop"
-            | "push"
-            | "concat"
-            | "join"
-            | "reverse"
-            | "shift"
-            | "slice"
-            | "sort"
-            | "splice"
-            | "unshift"
-            | "indexOf"
-            | "lastIndexOf"
-            | "every"
-            | "some"
-            | "forEach"
-            | "map"
-            | "filter"
-            | "reduce"
-            | "reduceRight"
-            | "find"
-            | "findIndex"
-            | "entries"
-            | "keys"
-            | "values"
-            | "includes"
-            | "flatMap"
-            | "flat"
-    )
 }
 
 #[cfg(test)]

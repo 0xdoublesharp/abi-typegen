@@ -1,4 +1,5 @@
 use super::ethers_common::function_signature;
+use crate::naming::Scope;
 use crate::type_mapper::{Target, property_name, safe_param_names, sol_type_to_ts};
 use abi_typegen_core::types::{AbiFunction, AbiParam, ContractIr, SolType, StateMutability};
 use heck::ToUpperCamelCase;
@@ -57,9 +58,17 @@ pub fn render_web3js_file(ir: &ContractIr) -> String {
     ));
 
     // Factory function — `create<Name>`
+    let factory_suffix = {
+        let camel = name.to_upper_camel_case();
+        if camel.is_empty() {
+            name.to_string()
+        } else {
+            camel
+        }
+    };
     out.push_str(&format!(
         "export function create{}(web3: Web3, address: string): {name}Contract {{\n",
-        name.to_upper_camel_case()
+        factory_suffix
     ));
     out.push_str(&format!(
         "  return new Contract({name}Abi, address, web3) as unknown as {name}Contract;\n"
@@ -121,13 +130,14 @@ fn sol_type_to_web3_input(ty: &SolType) -> String {
             format!("{}[]", sol_type_to_web3_input(inner))
         }
         SolType::Tuple(components) => {
+            let mut scope = Scope::default();
             let fields: Vec<String> = components
                 .iter()
                 .enumerate()
                 .map(|(i, c)| {
                     format!(
                         "{}: {}",
-                        property_name(&c.name, i),
+                        scope.claim(&property_name(&c.name, i)),
                         sol_type_to_web3_input(&c.ty)
                     )
                 })

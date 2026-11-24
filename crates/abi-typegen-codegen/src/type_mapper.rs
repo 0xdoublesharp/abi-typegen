@@ -137,6 +137,12 @@ pub fn sol_type_to_ts(ty: &SolType, target: Target) -> String {
                     SolType::Array(_) | SolType::FixedArray(_, _) => {
                         format!("readonly ({})[]", inner_ts)
                     }
+                    SolType::Tuple(components)
+                        if !components.is_empty()
+                            && components.iter().any(|c| c.name.is_empty()) =>
+                    {
+                        format!("readonly ({})[]", inner_ts)
+                    }
                     SolType::Uint(_)
                     | SolType::Int(_)
                     | SolType::Bool
@@ -163,20 +169,48 @@ pub fn sol_type_to_ts(ty: &SolType, target: Target) -> String {
             }
         }
 
-        SolType::Tuple(components) => {
-            let fields: Vec<String> = components
-                .iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    format!(
-                        "{}: {}",
-                        property_name(&c.name, i),
-                        sol_type_to_ts(&c.ty, target)
-                    )
-                })
-                .collect();
-            format!("{{ {} }}", fields.join("; "))
-        }
+        SolType::Tuple(components) => match target {
+            Target::Viem => {
+                if components.is_empty() {
+                    return "[]".into();
+                }
+                if components.iter().any(|c| c.name.is_empty()) {
+                    let items: Vec<String> = components
+                        .iter()
+                        .map(|c| sol_type_to_ts(&c.ty, target))
+                        .collect();
+                    return format!("readonly [{}]", items.join(", "));
+                }
+                let mut scope = crate::naming::Scope::default();
+                let fields: Vec<String> = components
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        format!(
+                            "{}: {}",
+                            scope.claim(&property_name(&c.name, i)),
+                            sol_type_to_ts(&c.ty, target)
+                        )
+                    })
+                    .collect();
+                format!("{{ {} }}", fields.join("; "))
+            }
+            Target::Ethers | Target::Web3 => {
+                let mut scope = crate::naming::Scope::default();
+                let fields: Vec<String> = components
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| {
+                        format!(
+                            "{}: {}",
+                            scope.claim(&property_name(&c.name, i)),
+                            sol_type_to_ts(&c.ty, target)
+                        )
+                    })
+                    .collect();
+                format!("{{ {} }}", fields.join("; "))
+            }
+        },
     }
 }
 
@@ -414,7 +448,8 @@ mod tests {
     #[test]
     fn empty_tuple() {
         let ty = SolType::Tuple(vec![]);
-        assert_eq!(sol_type_to_ts(&ty, Target::Viem), "{  }");
+        assert_eq!(sol_type_to_ts(&ty, Target::Viem), "[]");
+        assert_eq!(sol_type_to_ts(&ty, Target::Ethers), "{  }");
     }
 
     // ── safe_param_name tests ───────────────────────────────────────────
@@ -458,7 +493,7 @@ mod tests {
     }
 
     #[test]
-    fn tuple_unnamed_fields_get_positional_names() {
+    fn tuple_unnamed_fields_match_target_rules() {
         let ty = SolType::Tuple(vec![
             TupleComponent {
                 name: "".into(),
@@ -471,8 +506,15 @@ mod tests {
                 internal_type: None,
             },
         ]);
-        let result = sol_type_to_ts(&ty, Target::Viem);
-        assert_eq!(result, "{ arg0: bigint; arg1: `0x${string}` }");
+        // abitype/viem maps tuples with any unnamed component to positional readonly tuples
+        assert_eq!(
+            sol_type_to_ts(&ty, Target::Viem),
+            "readonly [bigint, `0x${string}`]"
+        );
+        assert_eq!(
+            sol_type_to_ts(&ty, Target::Ethers),
+            "{ arg0: bigint; arg1: string }"
+        );
     }
 
     // ── Additional coverage ────────────────────────────────────────────

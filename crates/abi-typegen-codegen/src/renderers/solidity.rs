@@ -82,6 +82,16 @@ fn append_interface_item(out: &mut String, has_items: &mut bool, item: &str) {
 fn collect_struct_defs(ir: &ContractIr) -> Vec<StructDef> {
     let mut defs = Vec::new();
     let mut seen = HashSet::new();
+    seen.insert(interface_name(&ir.name));
+    for error in &ir.errors {
+        seen.insert(error.name.clone());
+    }
+    for event in &ir.events {
+        seen.insert(event.name.clone());
+    }
+    for function in &ir.functions {
+        seen.insert(function.name.clone());
+    }
 
     for function in &ir.functions {
         let function_name = function.name.to_upper_camel_case();
@@ -200,25 +210,221 @@ fn collect_structs_in_type(
 }
 
 fn tuple_type_name(internal_type: Option<&str>, fallback_name: &str) -> String {
-    internal_type
+    let raw = internal_type
         .and_then(struct_name_from_internal_type)
-        .unwrap_or(fallback_name)
-        .to_upper_camel_case()
+        .unwrap_or(fallback_name);
+    sanitize_struct_ident(raw, fallback_name)
+}
+
+fn sanitize_struct_ident(raw: &str, fallback_name: &str) -> String {
+    let mut name = raw.to_upper_camel_case();
+    if name.is_empty() {
+        name = fallback_name.to_upper_camel_case();
+    }
+    if name.is_empty() {
+        return "Tuple".to_string();
+    }
+    if name.starts_with(|c: char| c.is_ascii_digit()) {
+        name.insert(0, 'X');
+    }
+    if is_solidity_keyword(&name) {
+        name.push('_');
+    }
+    name
+}
+
+fn sanitize_solidity_ident(raw: &str) -> String {
+    if raw.is_empty() {
+        return String::new();
+    }
+    let mut ident: String = raw
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '$' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if ident.starts_with(|c: char| c.is_ascii_digit()) {
+        ident.insert(0, '_');
+    }
+    if is_solidity_keyword(&ident) {
+        ident.push('_');
+    }
+    ident
+}
+
+fn is_solidity_keyword(name: &str) -> bool {
+    if matches!(
+        name,
+        "abstract"
+            | "address"
+            | "after"
+            | "alias"
+            | "anonymous"
+            | "apply"
+            | "as"
+            | "assembly"
+            | "auto"
+            | "bool"
+            | "break"
+            | "byte"
+            | "bytes"
+            | "calldata"
+            | "case"
+            | "catch"
+            | "const"
+            | "constant"
+            | "constructor"
+            | "continue"
+            | "contract"
+            | "copyof"
+            | "days"
+            | "default"
+            | "define"
+            | "delete"
+            | "do"
+            | "else"
+            | "emit"
+            | "enum"
+            | "ether"
+            | "event"
+            | "external"
+            | "fallback"
+            | "false"
+            | "final"
+            | "fixed"
+            | "for"
+            | "function"
+            | "gwei"
+            | "hours"
+            | "if"
+            | "immutable"
+            | "implements"
+            | "import"
+            | "in"
+            | "indexed"
+            | "inline"
+            | "int"
+            | "interface"
+            | "internal"
+            | "is"
+            | "let"
+            | "library"
+            | "macro"
+            | "mapping"
+            | "match"
+            | "memory"
+            | "minutes"
+            | "modifier"
+            | "mutable"
+            | "new"
+            | "null"
+            | "of"
+            | "override"
+            | "partial"
+            | "payable"
+            | "pragma"
+            | "private"
+            | "promise"
+            | "public"
+            | "pure"
+            | "receive"
+            | "reference"
+            | "relocatable"
+            | "return"
+            | "returns"
+            | "sealed"
+            | "seconds"
+            | "sizeof"
+            | "static"
+            | "storage"
+            | "string"
+            | "struct"
+            | "super"
+            | "supports"
+            | "switch"
+            | "this"
+            | "throw"
+            | "true"
+            | "try"
+            | "type"
+            | "typedef"
+            | "typeof"
+            | "ufixed"
+            | "uint"
+            | "unchecked"
+            | "using"
+            | "var"
+            | "view"
+            | "virtual"
+            | "weeks"
+            | "wei"
+            | "while"
+            | "years"
+    ) {
+        return true;
+    }
+    if let Some(rest) = name
+        .strip_prefix("uint")
+        .or_else(|| name.strip_prefix("int"))
+        && let Ok(bits) = rest.parse::<u16>()
+        && (8..=256).contains(&bits)
+        && bits % 8 == 0
+    {
+        return true;
+    }
+    if let Some(rest) = name.strip_prefix("bytes")
+        && let Ok(size) = rest.parse::<u8>()
+        && (1..=32).contains(&size)
+    {
+        return true;
+    }
+    false
 }
 
 fn tuple_name_segment(name: &str, index: usize, fallback_prefix: &str) -> String {
     if name.is_empty() {
         format!("{}{}", fallback_prefix, index)
     } else {
-        name.to_upper_camel_case()
+        let camel = name.to_upper_camel_case();
+        if camel.is_empty() {
+            format!("{}{}", fallback_prefix, index)
+        } else {
+            camel
+        }
     }
 }
 
 fn render_struct_def(def: &StructDef, defs: &[StructDef]) -> String {
     let mut out = String::new();
     out.push_str(&format!("    struct {} {{\n", def.name));
-    let mut scope = Scope::with_reserved(def.components.iter().map(|c| c.name.as_str()));
-    for (index, component) in def.components.iter().enumerate() {
+    let sanitized: Vec<String> = def
+        .components
+        .iter()
+        .map(|c| sanitize_solidity_ident(&c.name))
+        .collect();
+    let mut scope = Scope::with_reserved(
+        sanitized
+            .iter()
+            .filter(|name| !name.is_empty())
+            .map(String::as_str),
+    );
+    let mut used = HashSet::new();
+    for (index, (component, candidate)) in def.components.iter().zip(&sanitized).enumerate() {
+        let field_name = if candidate.is_empty() {
+            let claimed = scope.claim(&format!("arg{index}"));
+            used.insert(claimed.clone());
+            claimed
+        } else if used.insert(candidate.clone()) {
+            candidate.clone()
+        } else {
+            let claimed = scope.claim(candidate);
+            used.insert(claimed.clone());
+            claimed
+        };
         out.push_str(&format!(
             "        {};\n",
             render_field_like(
@@ -230,11 +436,7 @@ fn render_struct_def(def: &StructDef, defs: &[StructDef]) -> String {
                     def.name,
                     tuple_name_segment(&component.name, index, "Field")
                 ),
-                if component.name.is_empty() {
-                    scope.claim(&format!("arg{index}"))
-                } else {
-                    component.name.clone()
-                },
+                field_name,
                 None,
             )
         ));
@@ -243,42 +445,61 @@ fn render_struct_def(def: &StructDef, defs: &[StructDef]) -> String {
     out
 }
 
+fn resolve_optional_param_names<'a>(names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut scope = Scope::default();
+    names
+        .into_iter()
+        .map(|raw| {
+            let sanitized = sanitize_solidity_ident(raw);
+            if sanitized.is_empty() {
+                String::new()
+            } else {
+                scope.claim(&sanitized)
+            }
+        })
+        .collect()
+}
+
 fn render_error(error: &AbiError, defs: &[StructDef]) -> String {
     let mut out = String::new();
-    let param_names: Vec<&str> = error
+    let rendered_names = resolve_optional_param_names(error.inputs.iter().map(|p| p.name.as_str()));
+    let param_docs: Vec<(&str, &str)> = error
         .inputs
         .iter()
-        .map(|param| param.name.as_str())
+        .zip(&rendered_names)
+        .map(|(param, rendered)| (param.name.as_str(), rendered.as_str()))
         .collect();
     out.push_str(&indent_doc_block(&render_item_docs(
         error.natspec.as_ref(),
-        &param_names,
+        &param_docs,
         &[],
     )));
     out.push_str(&format!(
         "    error {}({});",
         error.name,
-        render_error_params(error, defs)
+        render_error_params(error, defs, &rendered_names)
     ));
     out
 }
 
 fn render_event(event: &AbiEvent, defs: &[StructDef]) -> String {
     let mut out = String::new();
-    let param_names: Vec<&str> = event
+    let rendered_names = resolve_optional_param_names(event.inputs.iter().map(|p| p.name.as_str()));
+    let param_docs: Vec<(&str, &str)> = event
         .inputs
         .iter()
-        .map(|param| param.name.as_str())
+        .zip(&rendered_names)
+        .map(|(param, rendered)| (param.name.as_str(), rendered.as_str()))
         .collect();
     out.push_str(&indent_doc_block(&render_item_docs(
         event.natspec.as_ref(),
-        &param_names,
+        &param_docs,
         &[],
     )));
     out.push_str(&format!(
         "    event {}({}){};",
         event.name,
-        render_event_params(event, defs),
+        render_event_params(event, defs, &rendered_names),
         if event.anonymous { " anonymous" } else { "" }
     ));
     out
@@ -286,44 +507,81 @@ fn render_event(event: &AbiEvent, defs: &[StructDef]) -> String {
 
 fn render_function(function: &AbiFunction, defs: &[StructDef]) -> String {
     let mut out = String::new();
-    let param_names: Vec<&str> = function
+    let input_names = resolve_optional_param_names(function.inputs.iter().map(|p| p.name.as_str()));
+    let output_names = resolved_function_output_names(function, &input_names);
+    let param_docs: Vec<(&str, &str)> = function
         .inputs
         .iter()
-        .map(|param| param.name.as_str())
+        .zip(&input_names)
+        .map(|(param, rendered)| (param.name.as_str(), rendered.as_str()))
         .collect();
-    let return_names: Vec<&str> = function
+    let return_docs: Vec<(&str, &str)> = function
         .outputs
         .iter()
-        .map(|param| param.name.as_str())
+        .zip(&output_names)
+        .filter_map(|(output, rendered)| {
+            rendered.as_deref().map(|name| (output.name.as_str(), name))
+        })
         .collect();
     out.push_str(&indent_doc_block(&render_item_docs(
         function.natspec.as_ref(),
-        &param_names,
-        &return_names,
+        &param_docs,
+        &return_docs,
     )));
 
     out.push_str(&format!(
         "    function {}({}) external{}",
         function.name,
-        render_function_params(function, defs),
+        render_function_params(function, defs, &input_names),
         render_mutability(&function.state_mutability)
     ));
     if !function.outputs.is_empty() {
         out.push_str(&format!(
             " returns ({})",
-            render_function_outputs(function, defs)
+            render_function_outputs(function, defs, &output_names)
         ));
     }
     out.push(';');
     out
 }
 
-fn render_function_params(function: &AbiFunction, defs: &[StructDef]) -> String {
+fn resolved_function_output_names(
+    function: &AbiFunction,
+    input_names: &[String],
+) -> Vec<Option<String>> {
+    let mut used_names: HashSet<String> = input_names
+        .iter()
+        .filter(|name| !name.is_empty())
+        .cloned()
+        .collect();
+
+    function
+        .outputs
+        .iter()
+        .map(|output| {
+            let candidate = sanitize_solidity_ident(&output.name);
+            if candidate.is_empty() {
+                None
+            } else if used_names.insert(candidate.clone()) {
+                Some(candidate)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn render_function_params(
+    function: &AbiFunction,
+    defs: &[StructDef],
+    input_names: &[String],
+) -> String {
     function
         .inputs
         .iter()
+        .zip(input_names)
         .enumerate()
-        .map(|(index, input)| {
+        .map(|(index, (input, name))| {
             render_field_like(
                 defs,
                 &input.ty,
@@ -333,7 +591,7 @@ fn render_function_params(function: &AbiFunction, defs: &[StructDef]) -> String 
                     function.name.to_upper_camel_case(),
                     tuple_name_segment(&input.name, index, "Param")
                 ),
-                input.name.clone(),
+                name.clone(),
                 data_location_for_type(&input.ty, true),
             )
         })
@@ -341,35 +599,23 @@ fn render_function_params(function: &AbiFunction, defs: &[StructDef]) -> String 
         .join(", ")
 }
 
-fn render_function_outputs(function: &AbiFunction, defs: &[StructDef]) -> String {
-    let mut used_names = function
-        .inputs
-        .iter()
-        .map(|input| input.name.clone())
-        .collect::<HashSet<_>>();
-
+fn render_function_outputs(
+    function: &AbiFunction,
+    defs: &[StructDef],
+    output_names: &[Option<String>],
+) -> String {
     function
         .outputs
         .iter()
+        .zip(output_names)
         .enumerate()
-        .map(|(index, output)| {
-            let output_name = if output.name.is_empty() {
-                None
-            } else {
-                let candidate = output.name.clone();
-                if used_names.insert(candidate.clone()) {
-                    Some(candidate)
-                } else {
-                    None
-                }
-            };
-
+        .map(|(index, (output, output_name))| {
             render_type_with_optional_name(
                 defs,
                 &output.ty,
                 output.internal_type.as_deref(),
                 &format!("{}Result{}", function.name.to_upper_camel_case(), index),
-                output_name,
+                output_name.clone(),
                 data_location_for_type(&output.ty, false),
             )
         })
@@ -377,23 +623,24 @@ fn render_function_outputs(function: &AbiFunction, defs: &[StructDef]) -> String
         .join(", ")
 }
 
-fn render_event_params(event: &AbiEvent, defs: &[StructDef]) -> String {
+fn render_event_params(event: &AbiEvent, defs: &[StructDef], rendered_names: &[String]) -> String {
     event
         .inputs
         .iter()
+        .zip(rendered_names)
         .enumerate()
-        .map(|(index, input)| render_event_param(input, &event.name, index, defs))
+        .map(|(index, (input, name))| render_event_param(input, name, &event.name, index, defs))
         .collect::<Vec<_>>()
         .join(", ")
 }
 
 fn render_event_param(
     input: &AbiEventParam,
+    name: &str,
     event_name: &str,
     index: usize,
     defs: &[StructDef],
 ) -> String {
-    let name = input.name.clone();
     let ty = render_solidity_type(
         defs,
         &input.ty,
@@ -412,12 +659,13 @@ fn render_event_param(
     }
 }
 
-fn render_error_params(error: &AbiError, defs: &[StructDef]) -> String {
+fn render_error_params(error: &AbiError, defs: &[StructDef], rendered_names: &[String]) -> String {
     error
         .inputs
         .iter()
+        .zip(rendered_names)
         .enumerate()
-        .map(|(index, input)| {
+        .map(|(index, (input, name))| {
             render_field_like(
                 defs,
                 &input.ty,
@@ -427,7 +675,7 @@ fn render_error_params(error: &AbiError, defs: &[StructDef]) -> String {
                     error.name.to_upper_camel_case(),
                     tuple_name_segment(&input.name, index, "Param")
                 ),
-                input.name.clone(),
+                name.clone(),
                 None,
             )
         })
@@ -554,32 +802,52 @@ fn indent_doc_block(block: &str) -> String {
         + "\n"
 }
 
-fn render_item_docs(natspec: Option<&NatSpec>, params: &[&str], returns: &[&str]) -> String {
+fn push_doc_tag(lines: &mut Vec<String>, prefix: &str, text: &str) {
+    let mut parts = text.lines();
+    if let Some(first) = parts.next() {
+        lines.push(format!("/// {prefix} {first}"));
+        for rest in parts {
+            if rest.is_empty() {
+                lines.push("///".to_string());
+            } else {
+                lines.push(format!("/// {rest}"));
+            }
+        }
+    } else {
+        lines.push(format!("/// {prefix}"));
+    }
+}
+
+fn render_item_docs(
+    natspec: Option<&NatSpec>,
+    params: &[(&str, &str)],
+    returns: &[(&str, &str)],
+) -> String {
     let Some(natspec) = natspec else {
         return String::new();
     };
 
     let mut lines = Vec::new();
     if let Some(notice) = &natspec.notice {
-        lines.push(format!("/// @notice {}", notice));
+        push_doc_tag(&mut lines, "@notice", notice);
     }
     if let Some(dev) = &natspec.dev {
-        lines.push(format!("/// @dev {}", dev));
+        push_doc_tag(&mut lines, "@dev", dev);
     }
-    for param in params {
-        if param.is_empty() {
+    for (raw, rendered) in params {
+        if raw.is_empty() || rendered.is_empty() {
             continue;
         }
-        if let Some(description) = natspec.params.get(*param) {
-            lines.push(format!("/// @param {} {}", param, description));
+        if let Some(description) = natspec.params.get(*raw) {
+            push_doc_tag(&mut lines, &format!("@param {rendered}"), description);
         }
     }
-    for ret in returns {
-        if ret.is_empty() {
+    for (raw, rendered) in returns {
+        if raw.is_empty() || rendered.is_empty() {
             continue;
         }
-        if let Some(description) = natspec.returns.get(*ret) {
-            lines.push(format!("/// @return {} {}", ret, description));
+        if let Some(description) = natspec.returns.get(*raw) {
+            push_doc_tag(&mut lines, &format!("@return {rendered}"), description);
         }
     }
 

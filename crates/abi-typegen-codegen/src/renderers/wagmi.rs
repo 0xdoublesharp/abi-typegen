@@ -68,7 +68,8 @@ pub fn render_wagmi_file(ir: &ContractIr) -> String {
                 ));
                 out.push_str(&format!(
                     "  return useReadContract({{\n    address,\n    abi: {}Abi,\n    functionName: '{}',\n  }});\n",
-                    ir.name, f.name
+                    ir.name,
+                    js_single_quoted(&f.name)
                 ));
                 out.push_str("}\n");
             } else {
@@ -80,7 +81,7 @@ pub fn render_wagmi_file(ir: &ContractIr) -> String {
                 out.push_str(&format!(
                     "  return useReadContract({{\n    address,\n    abi: {}Abi,\n    functionName: '{}',\n    args: [{}],\n  }});\n",
                     ir.name,
-                    f.name,
+                    js_single_quoted(&f.name),
                     arg_names(f)
                 ));
                 out.push_str("}\n");
@@ -121,7 +122,9 @@ pub fn render_wagmi_file(ir: &ContractIr) -> String {
             out.push_str("  return {\n    ...rest,\n");
             out.push_str(&format!(
                 "    write: ({}) =>\n      writeContract({{\n        address,\n        abi: {}Abi,\n        functionName: '{}',\n",
-                write_params, ir.name, f.name
+                write_params,
+                ir.name,
+                js_single_quoted(&f.name)
             ));
             if !f.inputs.is_empty() {
                 out.push_str(&format!("        args: [{}],\n", arg_names(f)));
@@ -155,7 +158,8 @@ pub fn render_wagmi_file(ir: &ContractIr) -> String {
             ));
             out.push_str(&format!(
                 "  return useWatchContractEvent({{\n    address,\n    abi: {}Abi,\n    eventName: '{}',\n    onLogs: (logs) => logs.forEach(listener),\n  }});\n",
-                ir.name, ev.name
+                ir.name,
+                js_single_quoted(&ev.name)
             ));
             out.push_str("}\n");
         }
@@ -265,6 +269,22 @@ fn hook_names(ir: &ContractIr) -> (Vec<String>, Vec<Option<String>>) {
         .collect();
 
     (functions, events)
+}
+
+fn js_single_quoted(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '\'' => out.push_str("\\'"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\u{2028}' => out.push_str("\\u2028"),
+            '\u{2029}' => out.push_str("\\u2029"),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 fn upper_first(name: &str) -> String {

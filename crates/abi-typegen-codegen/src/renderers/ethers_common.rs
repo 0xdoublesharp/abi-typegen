@@ -1,21 +1,33 @@
 use crate::type_mapper::{overload_suffix, safe_param_names};
-use abi_typegen_core::types::{AbiFunction, SolType};
+use abi_typegen_core::types::{AbiEvent, AbiFunction, SolType};
 use std::collections::{HashMap, HashSet};
 
 /// Allocates overload aliases without hiding real methods or another alias.
-pub(super) fn method_names(functions: &[AbiFunction]) -> Vec<String> {
+///
+/// When `reserve_filters` is true (the contract emits a `filters` block for
+/// non-anonymous events), a Solidity function named `filters` receives an alias
+/// so the generated interface does not declare duplicate `filters` members.
+pub(super) fn method_names(functions: &[AbiFunction], reserve_filters: bool) -> Vec<String> {
     let mut counts = HashMap::new();
     let mut used: HashSet<String> = functions.iter().map(|f| f.name.clone()).collect();
+    if reserve_filters {
+        used.insert("filters".to_string());
+    }
     for function in functions {
         *counts.entry(function.name.as_str()).or_insert(0) += 1;
     }
     functions
         .iter()
         .map(|function| {
-            if counts[function.name.as_str()] == 1 {
+            let collides_filters = reserve_filters && function.name == "filters";
+            if counts[function.name.as_str()] == 1 && !collides_filters {
                 return function.name.clone();
             }
-            let base = format!("{}{}", function.name, overload_suffix(&function.inputs));
+            let base = if counts[function.name.as_str()] > 1 {
+                format!("{}{}", function.name, overload_suffix(&function.inputs))
+            } else {
+                format!("{}Fn", function.name)
+            };
             let mut candidate = base.clone();
             let mut suffix = 2;
             while !used.insert(candidate.clone()) {
@@ -25,6 +37,91 @@ pub(super) fn method_names(functions: &[AbiFunction]) -> Vec<String> {
             candidate
         })
         .collect()
+}
+
+/// Canonical ABI event signature (e.g. `Transfer(address,address,uint256)`).
+pub(super) fn event_signature(event: &AbiEvent) -> String {
+    format!(
+        "{}({})",
+        event.name,
+        event
+            .inputs
+            .iter()
+            .map(|input| canonical_type(&input.ty))
+            .collect::<Vec<_>>()
+            .join(",")
+    )
+}
+
+/// Returns whether a tuple output type renders as an intersection (`[...] & { ... }`)
+/// and therefore needs parentheses when wrapped in `[]`.
+pub(super) fn tuple_output_is_intersection(ty: &SolType) -> bool {
+    match ty {
+        SolType::Tuple(components) => components
+            .iter()
+            .any(|c| !c.name.is_empty() && !is_tuple_property_name(&c.name)),
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType
+        | SolType::Array(_)
+        | SolType::FixedArray(_, _) => false,
+    }
+}
+
+/// Returns whether `name` collides with a property inherited from `Array.prototype`
+/// or `Object.prototype` on an ethers tuple `Result`.
+pub(super) fn is_tuple_property_name(name: &str) -> bool {
+    matches!(
+        name,
+        "length"
+            | "constructor"
+            | "valueOf"
+            | "hasOwnProperty"
+            | "isPrototypeOf"
+            | "propertyIsEnumerable"
+            | "toString"
+            | "toLocaleString"
+            | "at"
+            | "fill"
+            | "copyWithin"
+            | "pop"
+            | "push"
+            | "concat"
+            | "join"
+            | "reverse"
+            | "shift"
+            | "slice"
+            | "sort"
+            | "splice"
+            | "unshift"
+            | "indexOf"
+            | "lastIndexOf"
+            | "every"
+            | "some"
+            | "forEach"
+            | "map"
+            | "filter"
+            | "reduce"
+            | "reduceRight"
+            | "find"
+            | "findIndex"
+            | "findLast"
+            | "findLastIndex"
+            | "entries"
+            | "keys"
+            | "values"
+            | "includes"
+            | "flatMap"
+            | "flat"
+            | "toReversed"
+            | "toSorted"
+            | "toSpliced"
+            | "with"
+    )
 }
 
 /// Name for the trailing overrides parameter that no ABI input already uses.

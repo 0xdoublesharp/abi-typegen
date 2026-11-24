@@ -1,7 +1,5 @@
 use crate::naming::Scope;
-use crate::type_mapper::{
-    Target, overload_suffix, safe_param_name, safe_param_names, sol_type_to_ts,
-};
+use crate::type_mapper::{Target, overload_suffix, safe_param_names, sol_type_to_ts};
 use abi_typegen_core::types::{AbiFunction, AbiParam, ContractIr, NatSpec, StateMutability};
 use heck::ToUpperCamelCase;
 use std::collections::HashMap;
@@ -97,18 +95,39 @@ fn render_params_type(type_name: &str, f: &AbiFunction) -> String {
     out
 }
 
+fn push_jsdoc_lines(lines: &mut Vec<String>, prefix: &str, text: &str) {
+    let sanitized = text.replace("*/", "*\\/");
+    let mut parts = sanitized.lines();
+    if let Some(first) = parts.next() {
+        if prefix.is_empty() {
+            lines.push(format!(" * {first}"));
+        } else {
+            lines.push(format!(" * {prefix} {first}"));
+        }
+        for rest in parts {
+            if rest.is_empty() {
+                lines.push(" *".to_string());
+            } else {
+                lines.push(format!(" * {rest}"));
+            }
+        }
+    } else if !prefix.is_empty() {
+        lines.push(format!(" * {prefix}"));
+    }
+}
+
 fn render_jsdoc(ns: &NatSpec, params: &[AbiParam], outputs: &[AbiParam]) -> String {
     let mut lines = Vec::new();
     if let Some(notice) = &ns.notice {
-        lines.push(format!(" * {}", notice));
+        push_jsdoc_lines(&mut lines, "", notice);
     }
     if let Some(dev) = &ns.dev {
-        lines.push(format!(" * @dev {}", dev));
+        push_jsdoc_lines(&mut lines, "@dev", dev);
     }
-    for (i, param) in params.iter().enumerate() {
+    let param_names = safe_param_names(params.iter().map(|p| p.name.as_str()));
+    for (param, name) in params.iter().zip(&param_names) {
         if let Some(desc) = ns.params.get(&param.name) {
-            let name = safe_param_name(&param.name, i);
-            lines.push(format!(" * @param {} {}", name, desc));
+            push_jsdoc_lines(&mut lines, &format!("@param {name}"), desc);
         }
     }
     // Follow ABI output order; solc keys unnamed outputs as `_0`, `_1`, ...
@@ -119,7 +138,7 @@ fn render_jsdoc(ns: &NatSpec, params: &[AbiParam], outputs: &[AbiParam]) -> Stri
             output.name.clone()
         };
         if let Some(desc) = ns.returns.get(&key) {
-            lines.push(format!(" * @returns {} {}", key, desc));
+            push_jsdoc_lines(&mut lines, &format!("@returns {key}"), desc);
         }
     }
     if lines.is_empty() {

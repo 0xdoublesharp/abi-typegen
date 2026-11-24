@@ -1,6 +1,7 @@
 use crate::naming::Scope;
 use crate::type_mapper::{
     overload_suffix, overload_suffix_from_sol_types, property_name, safe_param_name,
+    safe_param_names,
 };
 use abi_typegen_core::types::{
     AbiConstructor, AbiError, AbiEvent, AbiEventParam, AbiFunction, AbiParam, ContractIr, NatSpec,
@@ -113,6 +114,9 @@ fn append_function_schemas(
     function_counts: &HashMap<&str, usize>,
     scope: &mut Scope,
 ) {
+    if function.inputs.is_empty() && function.outputs.is_empty() {
+        return;
+    }
     let base_name = scope.claim_family(
         &function_base_name(contract_name, function, function_counts),
         &["Params", "ParamsSchema", "Result", "ResultSchema"],
@@ -368,6 +372,7 @@ fn render_int_schema(bits: u16) -> String {
 }
 
 fn render_tuple_schema(components: &[TupleComponent]) -> String {
+    let mut scope = Scope::default();
     let mut components = components.iter().enumerate();
     let Some((index, component)) = components.next() else {
         return "z.object({})".to_string();
@@ -376,14 +381,14 @@ fn render_tuple_schema(components: &[TupleComponent]) -> String {
     let mut out = String::from("z.object({ ");
     out.push_str(&format!(
         "{}: {}",
-        property_name(&component.name, index),
+        scope.claim(&property_name(&component.name, index)),
         render_sol_type_schema(&component.ty)
     ));
     for (index, component) in components {
         out.push_str(", ");
         out.push_str(&format!(
             "{}: {}",
-            property_name(&component.name, index),
+            scope.claim(&property_name(&component.name, index)),
             render_sol_type_schema(&component.ty)
         ));
     }
@@ -392,36 +397,77 @@ fn render_tuple_schema(components: &[TupleComponent]) -> String {
 }
 
 fn render_jsdoc_for_inputs(natspec: &NatSpec, inputs: &[AbiParam]) -> String {
+    let names = safe_param_names(inputs.iter().map(|input| input.name.as_str()));
     render_jsdoc(
         natspec,
         inputs
             .iter()
-            .enumerate()
-            .map(|(index, input)| (input.name.as_str(), safe_param_name(&input.name, index))),
+            .zip(names)
+            .map(|(input, name)| (input.name.as_str(), name)),
         std::iter::empty(),
     )
 }
 
 fn render_jsdoc_for_outputs(natspec: &NatSpec, outputs: &[AbiParam]) -> String {
+    let names = safe_param_names(outputs.iter().map(|output| output.name.as_str()));
+    let return_keys: Vec<(String, String)> = outputs
+        .iter()
+        .zip(names)
+        .enumerate()
+        .map(|(index, (output, safe_name))| {
+            let key = if output.name.is_empty() {
+                let solc_key = format!("_{index}");
+                if natspec.returns.contains_key(&solc_key) {
+                    solc_key
+                } else {
+                    String::new()
+                }
+            } else {
+                output.name.clone()
+            };
+            (key, safe_name)
+        })
+        .collect();
     render_jsdoc(
         natspec,
         std::iter::empty(),
-        outputs
+        return_keys
             .iter()
-            .enumerate()
-            .map(|(index, output)| (output.name.as_str(), safe_param_name(&output.name, index))),
+            .map(|(key, safe_name)| (key.as_str(), safe_name.clone())),
     )
 }
 
 fn render_jsdoc_for_event_inputs(natspec: &NatSpec, inputs: &[AbiEventParam]) -> String {
+    let names = safe_param_names(inputs.iter().map(|input| input.name.as_str()));
     render_jsdoc(
         natspec,
         inputs
             .iter()
-            .enumerate()
-            .map(|(index, input)| (input.name.as_str(), safe_param_name(&input.name, index))),
+            .zip(names)
+            .map(|(input, name)| (input.name.as_str(), name)),
         std::iter::empty(),
     )
+}
+
+fn push_jsdoc_lines(lines: &mut Vec<String>, prefix: &str, text: &str) {
+    let sanitized = text.replace("*/", "*\\/");
+    let mut parts = sanitized.lines();
+    if let Some(first) = parts.next() {
+        if prefix.is_empty() {
+            lines.push(format!(" * {first}"));
+        } else {
+            lines.push(format!(" * {prefix} {first}"));
+        }
+        for rest in parts {
+            if rest.is_empty() {
+                lines.push(" *".to_string());
+            } else {
+                lines.push(format!(" * {rest}"));
+            }
+        }
+    } else if !prefix.is_empty() {
+        lines.push(format!(" * {prefix}"));
+    }
 }
 
 fn render_jsdoc<'a, P, R>(natspec: &NatSpec, params: P, returns: R) -> String
@@ -431,19 +477,19 @@ where
 {
     let mut lines = Vec::new();
     if let Some(notice) = &natspec.notice {
-        lines.push(format!(" * {}", notice));
+        push_jsdoc_lines(&mut lines, "", notice);
     }
     if let Some(dev) = &natspec.dev {
-        lines.push(format!(" * @dev {}", dev));
+        push_jsdoc_lines(&mut lines, "@dev", dev);
     }
     for (original_name, safe_name) in params {
         if let Some(description) = natspec.params.get(original_name) {
-            lines.push(format!(" * @param {} {}", safe_name, description));
+            push_jsdoc_lines(&mut lines, &format!("@param {safe_name}"), description);
         }
     }
     for (original_name, safe_name) in returns {
         if let Some(description) = natspec.returns.get(original_name) {
-            lines.push(format!(" * @returns {} {}", safe_name, description));
+            push_jsdoc_lines(&mut lines, &format!("@returns {safe_name}"), description);
         }
     }
     if lines.is_empty() {
