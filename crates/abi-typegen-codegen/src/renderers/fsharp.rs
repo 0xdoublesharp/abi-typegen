@@ -2,12 +2,22 @@
 use crate::tuples::TupleRegistry;
 use abi_typegen_core::types::{ContractIr, SolType};
 use heck::ToUpperCamelCase;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 mod wrappers;
 
 /// Returns a safe F# module and filename stem.
 pub fn namespace_name(name: &str) -> String {
-    let stem = name.to_upper_camel_case();
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = cleaned.to_upper_camel_case();
     if stem.is_empty() || !stem.starts_with(|c: char| c.is_ascii_alphabetic()) {
         format!("Contract{stem}")
     } else {
@@ -56,16 +66,24 @@ fn solidity(ty: &SolType) -> String {
         SolType::FixedArray(t, n) => format!("{}[{n}]", solidity(t)),
     }
 }
-fn map_type(ty: &SolType, internal: Option<&str>, registry: &TupleRegistry) -> String {
+fn map_type(
+    ty: &SolType,
+    internal: Option<&str>,
+    registry: &TupleRegistry,
+    tuple_names: &HashMap<String, String>,
+) -> String {
     match ty {
         SolType::Uint(_) | SolType::Int(_) => "BigInteger".into(),
         SolType::Bool => "bool".into(),
         SolType::Address | SolType::StringType => "string".into(),
         SolType::Bytes | SolType::BytesN(_) => "byte array".into(),
         SolType::Array(t) | SolType::FixedArray(t, _) => {
-            format!("ResizeArray<{}>", map_type(t, internal, registry))
+            format!(
+                "ResizeArray<{}>",
+                map_type(t, internal, registry, tuple_names)
+            )
         }
-        SolType::Tuple(c) => format!("Tuple{}", registry.name(c, internal)),
+        SolType::Tuple(c) => tuple_names[registry.name(c, internal)].clone(),
     }
 }
 struct Field<'a> {
@@ -91,6 +109,7 @@ fn record(
     attr: &str,
     interface: &str,
     registry: &TupleRegistry,
+    tuple_names: &HashMap<String, String>,
 ) {
     if !attr.is_empty() {
         out.push_str(&format!("[<{attr}>]\n"));
@@ -114,7 +133,7 @@ fn record(
         let ty = if hash {
             "string".into()
         } else {
-            map_type(p.ty, p.internal, registry)
+            map_type(p.ty, p.internal, registry, tuple_names)
         };
         out.push_str(&format!(
             "        [<Parameter({}, {}, {}, {})>]\n        {}: {}\n",
@@ -174,6 +193,16 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
         namespace_name(&ir.name),
         quoted(&serde_json::to_string(&ir.raw_abi).expect("ABI serializes"))
     );
+    let mut used = HashSet::new();
+    let tuple_names: HashMap<String, String> = registry
+        .defs()
+        .iter()
+        .map(|def| {
+            let clean = namespace_name(&def.name);
+            let name = unique(format!("Tuple{clean}"), &mut used);
+            (def.name.clone(), name)
+        })
+        .collect();
     for def in registry.defs() {
         let ps = def
             .components
@@ -187,11 +216,12 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             .collect::<Vec<_>>();
         record(
             &mut out,
-            &format!("Tuple{}", def.name),
+            &tuple_names[&def.name],
             &ps,
             &format!("Struct({})", quoted(&def.name)),
             "",
             &registry,
+            &tuple_names,
         );
     }
     if let Some(c) = &ir.constructor {
@@ -202,13 +232,9 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             "",
             "",
             &registry,
+            &tuple_names,
         );
     }
-    let mut used = registry
-        .defs()
-        .iter()
-        .map(|d| format!("Tuple{}", d.name))
-        .collect::<HashSet<_>>();
     used.insert("ConstructorParams".into());
     if ir.constructor.is_some() {
         used.insert("DeploymentParams".into());
@@ -226,6 +252,7 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             "",
             "",
             &registry,
+            &tuple_names,
         );
         record(
             &mut out,
@@ -234,6 +261,7 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             "FunctionOutput",
             "IFunctionOutputDTO",
             &registry,
+            &tuple_names,
         );
     }
     let events = stems(
@@ -259,6 +287,7 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             &format!("Event({}, {})", quoted(&e.name), e.anonymous),
             "IEventDTO",
             &registry,
+            &tuple_names,
         );
         if wrappers && e.inputs.iter().any(|p| p.indexed && indexed_hash(&p.ty)) {
             // Nethereum decodes static arrays as values instead of topic hashes.
@@ -284,6 +313,7 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
                 &format!("Event({}, {})", quoted(&e.name), e.anonymous),
                 "IEventDTO",
                 &registry,
+                &tuple_names,
             );
         }
     }
@@ -300,6 +330,7 @@ pub fn render_fsharp_file(ir: &ContractIr, wrappers: bool) -> String {
             &format!("Error({})", quoted(&e.name)),
             "IErrorDTO",
             &registry,
+            &tuple_names,
         );
     }
     if wrappers {

@@ -24,7 +24,53 @@ fn ident(name: &str) -> String {
     format!("atg_{}", if name.is_empty() { "field" } else { &name })
 }
 fn literal(s: &str) -> String {
-    serde_json::to_string(s).expect("string serializes")
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    let mut prev_question = false;
+    for byte in s.bytes() {
+        match byte {
+            b'"' => {
+                out.push_str("\\\"");
+                prev_question = false;
+            }
+            b'\\' => {
+                out.push_str("\\\\");
+                prev_question = false;
+            }
+            b'\n' => {
+                out.push_str("\\n");
+                prev_question = false;
+            }
+            b'\r' => {
+                out.push_str("\\r");
+                prev_question = false;
+            }
+            b'\t' => {
+                out.push_str("\\t");
+                prev_question = false;
+            }
+            b'?' if prev_question => {
+                // Prevent C11 trigraph sequences such as ??" or ??/.
+                out.push_str("\\?");
+                prev_question = false;
+            }
+            b'?' => {
+                out.push('?');
+                prev_question = true;
+            }
+            0x20..=0x7e => {
+                out.push(byte as char);
+                prev_question = false;
+            }
+            other => {
+                // Use 3-digit octal escapes so following hex digits are never swallowed.
+                out.push_str(&format!("\\{other:03o}"));
+                prev_question = false;
+            }
+        }
+    }
+    out.push('"');
+    out
 }
 struct Types {
     prefix: String,
@@ -33,6 +79,7 @@ struct Types {
     count: usize,
     known: Vec<(SolType, String)>,
     tuples: crate::tuples::TupleRegistry,
+    type_scope: Scope,
 }
 impl Types {
     fn new(prefix: String, ir: &ContractIr) -> Self {
@@ -43,6 +90,7 @@ impl Types {
             count: 0,
             known: Vec::new(),
             tuples: crate::tuples::TupleRegistry::new(ir),
+            type_scope: Scope::default(),
         }
     }
     fn ty(&mut self, ty: &SolType) -> String {
@@ -50,7 +98,7 @@ impl Types {
             return name.clone();
         }
         self.count += 1;
-        let name = if let SolType::Tuple(fields) = ty {
+        let base_name = if let SolType::Tuple(fields) = ty {
             self.tuples
                 .defs()
                 .iter()
@@ -60,6 +108,7 @@ impl Types {
         } else {
             format!("{}_type_{}", self.prefix, self.count)
         };
+        let name = self.type_scope.claim(&base_name);
         let (definition, encode, decode) = match ty {
             SolType::Bool => (format!("typedef bool {name};\n"), "return atg_value_bool(*x);".into(), "if (atg_value_kind(v) != 1) return false; *x = atg_value_get_bool(v) != 0; return true;".into()),
             SolType::Uint(_) | SolType::Int(_) => (format!("typedef atg_word {name};\n"), "return atg_value_word(x->bytes);".into(), "if (atg_value_kind(v) != 2) return false; memcpy(x->bytes, atg_value_data(v), 32); return true;".into()),
@@ -71,17 +120,44 @@ impl Types {
                 let fields: Vec<_> = fields.iter().enumerate().map(|(i,f)| (scope.claim(&ident(if f.name.is_empty() { "field" } else { &f.name })), self.ty(&f.ty), i)).collect();
                 self.structure(&name,&fields)
             }
-            SolType::Array(inner) | SolType::FixedArray(inner, _) => {
+            SolType::Array(inner) => {
                 let child = self.ty(inner);
-                let (definition,len,allocate) = match ty {
-                    SolType::FixedArray(_, n) => (format!("typedef struct {{ {child} data[{}]; }} {name};\n",(*n).max(1)),n.to_string(),format!("if (atg_value_len(v) != {n}) return false;")),
-                    _ => (format!("typedef struct {{ {child} *data; size_t len; }} {name};\n"),"x->len".into(),format!("x->len = atg_value_len(v); if (x->len > SIZE_MAX / sizeof({child})) return false; x->data = ({child} *)atg_result_alloc(owner, x->len * sizeof({child}), ATG_ALIGNOF({child})); if (x->len && !x->data) return false;")),
+                let definition = format!("typedef struct {{ {child} *data; size_t len; }} {name};\n");
+                let allocate = format!(
+                    "x->len = atg_value_len(v); if (x->len > SIZE_MAX / sizeof({child})) return false; x->data = ({child} *)atg_result_alloc(owner, x->len * sizeof({child}), ATG_ALIGNOF({child})); if (x->len && !x->data) return false;"
+                );
+                let encode = format!(
+                    "atg_value *seq = atg_value_seq(); if (!seq) return NULL; if (x->len && !x->data) {{ atg_value_free(seq); return NULL; }} for (size_t i = 0; i < x->len; ++i) {{ atg_value *item = {child}_to_value(&x->data[i]); if (!item || atg_value_push(seq, item)) {{ atg_value_free(item); atg_value_free(seq); return NULL; }} atg_value_free(item); }} return seq;"
+                );
+                let decode = format!(
+                    "if (atg_value_kind(v) != 4) return false; {allocate} for (size_t i = 0; i < x->len; ++i) {{ if (!{child}_from_value(owner, atg_value_at(v,i), &x->data[i])) return false; }} return true;"
+                );
+                (definition, encode, decode)
+            }
+            SolType::FixedArray(inner, n) => {
+                let child = self.ty(inner);
+                let definition = format!(
+                    "typedef struct {{ {child} data[{}]; }} {name};\n",
+                    (*n).max(1)
+                );
+                // Omit zero-iteration loops so -Werror=type-limits builds cleanly on T[0].
+                let (encode, decode) = if *n == 0 {
+                    (
+                        "(void)x; return atg_value_seq();".to_string(),
+                        "(void)x; return atg_value_kind(v) == 4 && atg_value_len(v) == 0;"
+                            .to_string(),
+                    )
+                } else {
+                    (
+                        format!(
+                            "atg_value *seq = atg_value_seq(); if (!seq) return NULL; for (size_t i = 0; i < {n}; ++i) {{ atg_value *item = {child}_to_value(&x->data[i]); if (!item || atg_value_push(seq, item)) {{ atg_value_free(item); atg_value_free(seq); return NULL; }} atg_value_free(item); }} return seq;"
+                        ),
+                        format!(
+                            "if (atg_value_kind(v) != 4) return false; if (atg_value_len(v) != {n}) return false; for (size_t i = 0; i < {n}; ++i) {{ if (!{child}_from_value(owner, atg_value_at(v,i), &x->data[i])) return false; }} return true;"
+                        ),
+                    )
                 };
-                let encode = format!("atg_value *seq = atg_value_seq(); if (!seq) return NULL; if ({len} && !x->data) {{ atg_value_free(seq); return NULL; }} for (size_t i = 0; i < {len}; ++i) {{ atg_value *item = {child}_to_value(&x->data[i]); if (!item || atg_value_push(seq, item)) {{ atg_value_free(item); atg_value_free(seq); return NULL; }} atg_value_free(item); }} return seq;");
-                // Fixed arrays cannot be NULL; omit the redundant condition to keep -Werror builds clean.
-                let encode = if matches!(ty,SolType::FixedArray(..)) { encode.replace(&format!("if ({len} && !x->data) {{ atg_value_free(seq); return NULL; }} "),"") } else { encode };
-                let decode = format!("if (atg_value_kind(v) != 4) return false; {allocate} for (size_t i = 0; i < {len}; ++i) {{ if (!{child}_from_value(owner, atg_value_at(v,i), &x->data[i])) return false; }} return true;");
-                (definition,encode,decode)
+                (definition, encode, decode)
             }
         };
         self.known.push((ty.clone(), name.clone()));
@@ -314,6 +390,9 @@ pub fn render_c_file(ir: &ContractIr, wrappers: bool) -> String {
                 indexed + start
             );
             if indexed + start > 4 {
+                for i in 0..indexed {
+                    filter_body.push_str(&format!(" (void)topic{i};"));
+                }
                 filter_body.push_str(" return false;");
             } else {
                 if !e.anonymous {

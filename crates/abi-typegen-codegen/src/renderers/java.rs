@@ -8,12 +8,54 @@ use std::collections::HashMap;
 
 mod layout;
 
+/// Sanitizes an identifier into a valid PascalCase Java type/member stem.
+pub(super) fn java_exported(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = exported(&cleaned);
+    if stem.is_empty() {
+        fallback.to_string()
+    } else if !stem.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("{fallback}{stem}")
+    } else {
+        stem
+    }
+}
+
+fn constant_base(name: &str, suffix: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let base = cleaned.to_shouty_snake_case();
+    let base = if base.is_empty() {
+        "ITEM".to_string()
+    } else if !base.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("ITEM_{base}")
+    } else {
+        base
+    };
+    format!("{base}{suffix}")
+}
+
 /// Returns the public Java class name for an ABI contract.
 pub fn namespace_name(name: &str) -> String {
-    let name = exported(name);
-    if name.is_empty() {
-        "Contract".to_string()
-    } else if [
+    let name = java_exported(name, "Contract");
+    if [
         "String",
         "Boolean",
         "Object",
@@ -58,7 +100,12 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
     let tuple_names: HashMap<String, String> = registry
         .defs()
         .iter()
-        .map(|def| (def.name.clone(), scope.claim(&def.name)))
+        .map(|def| {
+            (
+                def.name.clone(),
+                scope.claim(&java_exported(&def.name, "Tuple")),
+            )
+        })
         .collect();
     let java = Java {
         registry: &registry,
@@ -78,7 +125,7 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
     for (function, index) in ir.functions.iter().zip(overload_indices(&ir.functions)) {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", function.name.to_shouty_snake_case(), suffix),
+            &constant_base(&function.name, &suffix),
             &["_SIGNATURE", "_SELECTOR"],
         );
         out.push_str(&format!("    /** Canonical function signature. */\n    public static final String {base}_SIGNATURE = {};\n", java_string(&function.signature())));
@@ -91,7 +138,7 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
     {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", event.name.to_shouty_snake_case(), suffix),
+            &constant_base(&event.name, &suffix),
             &["_EVENT_SIGNATURE", "_EVENT_TOPIC"],
         );
         out.push_str(&format!("    /** Canonical event signature. */\n    public static final String {base}_EVENT_SIGNATURE = {};\n", java_string(&event.signature())));
@@ -106,7 +153,7 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
     {
         let suffix = index.map(|i| format!("_{i}")).unwrap_or_default();
         let base = constants.claim_family(
-            &format!("{}{}", error.name.to_shouty_snake_case(), suffix),
+            &constant_base(&error.name, &suffix),
             &["_ERROR_SIGNATURE", "_ERROR_SELECTOR"],
         );
         out.push_str(&format!("    /** Canonical error signature. */\n    public static final String {base}_ERROR_SIGNATURE = {};\n", java_string(&error.signature())));
@@ -154,16 +201,21 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
         }
         out.push_str("        }\n    }\n");
     }
+    let mut event_classes = Vec::with_capacity(ir.events.len());
     for (event, index) in ir
         .events
         .iter()
         .zip(repeat_indices(ir.events.iter().map(|e| e.name.as_str())))
     {
-        let stem = format!(
-            "{}{}",
-            exported(&event.name),
-            index.map(|i| i.to_string()).unwrap_or_default()
+        let stem = scope.claim_family(
+            &format!(
+                "{}{}",
+                java_exported(&event.name, "Event"),
+                index.map(|i| i.to_string()).unwrap_or_default()
+            ),
+            &["Event"],
         );
+        let event_class = format!("{stem}Event");
         let params: Vec<AbiParam> = event
             .inputs
             .iter()
@@ -173,22 +225,35 @@ pub fn render_java_file(ir: &ContractIr, package: &str, wrappers: bool) -> Strin
                 internal_type: p.internal_type.clone(),
             })
             .collect();
-        out.push_str(&java.record(&format!("{stem}Event"), &params));
+        out.push_str(&java.record(&event_class, &params));
+        event_classes.push(event_class);
     }
+    let mut error_classes = Vec::with_capacity(ir.errors.len());
     for (error, index) in ir
         .errors
         .iter()
         .zip(repeat_indices(ir.errors.iter().map(|e| e.name.as_str())))
     {
-        let stem = format!(
-            "{}{}",
-            exported(&error.name),
-            index.map(|i| i.to_string()).unwrap_or_default()
+        let stem = scope.claim_family(
+            &format!(
+                "{}{}",
+                java_exported(&error.name, "Error"),
+                index.map(|i| i.to_string()).unwrap_or_default()
+            ),
+            &["Error"],
         );
-        out.push_str(&java.record(&format!("{stem}Error"), &error.inputs));
+        let error_class = format!("{stem}Error");
+        out.push_str(&java.record(&error_class, &error.inputs));
+        error_classes.push(error_class);
     }
     if wrappers {
-        out.push_str(&layout::render(ir, &java));
+        out.push_str(&layout::render(
+            ir,
+            &java,
+            &mut scope,
+            &event_classes,
+            &error_classes,
+        ));
     }
     out.push_str("}\n");
     out
@@ -206,6 +271,9 @@ struct Java<'a> {
 
 impl Java<'_> {
     fn fields(&self, params: &[AbiParam]) -> Vec<Field> {
+        self.fields_with_reserved(params, &[])
+    }
+    fn fields_with_reserved(&self, params: &[AbiParam], reserved: &[&str]) -> Vec<Field> {
         let names = param_names(params.iter().map(|p| {
             (
                 p.name.as_str(),
@@ -214,7 +282,7 @@ impl Java<'_> {
                     .name_of_type(&p.ty, p.internal_type.as_deref()),
             )
         }));
-        let mut scope = Scope::default();
+        let mut scope = Scope::with_reserved(reserved.iter().copied());
         params
             .iter()
             .zip(names)
@@ -276,7 +344,14 @@ impl Java<'_> {
                     "org.web3j.abi.datatypes.StaticArray".into()
                 }
             }
-            _ => self.sdk_type(ty, internal),
+            SolType::Bool
+            | SolType::Address
+            | SolType::StringType
+            | SolType::Uint(_)
+            | SolType::Int(_)
+            | SolType::Bytes
+            | SolType::BytesN(_)
+            | SolType::Tuple(_) => self.sdk_type(ty, internal),
         }
     }
     fn to_sdk(&self, expr: &str, ty: &SolType, internal: Option<&str>, depth: usize) -> String {
@@ -402,7 +477,7 @@ fn java_ident(name: &str) -> String {
 fn is_dynamic(ty: &SolType) -> bool {
     match ty {
         SolType::Bytes | SolType::StringType | SolType::Array(_) => true,
-        SolType::FixedArray(inner, _) => is_dynamic(inner),
+        SolType::FixedArray(inner, size) => *size > 0 && is_dynamic(inner),
         SolType::Tuple(parts) => parts.iter().any(|part| is_dynamic(&part.ty)),
         SolType::Bool
         | SolType::Address

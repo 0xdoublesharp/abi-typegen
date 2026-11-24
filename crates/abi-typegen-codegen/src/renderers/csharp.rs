@@ -1,3 +1,6 @@
+//! C# source generation with Nethereum `[Parameter]`, `[Function]`, `[Event]`,
+//! and `[Error]` attributes plus optional Nethereum contract bindings.
+
 use crate::tuples::TupleRegistry;
 use crate::type_mapper::{overload_suffix, safe_param_name};
 use abi_typegen_core::types::{ContractIr, SolType, TupleComponent};
@@ -5,6 +8,64 @@ use heck::ToUpperCamelCase;
 use std::collections::{HashMap, HashSet};
 
 mod wrappers;
+
+fn csharp_clean_ident(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if cleaned.is_empty() || cleaned.chars().all(|ch| ch == '_') {
+        fallback.to_string()
+    } else if !cleaned.starts_with(|ch: char| ch.is_ascii_alphabetic() || ch == '_') {
+        format!("{fallback}{cleaned}")
+    } else {
+        cleaned
+    }
+}
+
+pub(super) fn csharp_contract_name(name: &str) -> String {
+    csharp_clean_ident(name, "Contract")
+}
+
+fn csharp_camel_stem(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = cleaned.to_upper_camel_case();
+    if stem.is_empty() {
+        fallback.to_string()
+    } else if !stem.starts_with(|ch: char| ch.is_ascii_alphabetic()) {
+        format!("{fallback}{stem}")
+    } else {
+        stem
+    }
+}
+
+fn csharp_xml_doc(text: &str) -> String {
+    let collapsed = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    collapsed
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
 
 fn csharp_property_name(name: &str, index: usize) -> String {
     let candidate = safe_param_name(name, index).to_upper_camel_case();
@@ -81,7 +142,11 @@ fn function_stems(ir: &ContractIr) -> Vec<String> {
             } else {
                 String::new()
             };
-            let base = format!("{}{}", function.name.to_upper_camel_case(), suffix);
+            let base = format!(
+                "{}{}",
+                csharp_camel_stem(&function.name, "Function"),
+                suffix
+            );
             let mut candidate = base.clone();
             let mut index = 2;
             while !used.insert(candidate.clone()) {
@@ -97,7 +162,7 @@ fn item_stems<'a>(names: impl Iterator<Item = &'a str>) -> Vec<String> {
     let mut used = HashSet::new();
     names
         .map(|name| {
-            let base = name.to_upper_camel_case();
+            let base = csharp_camel_stem(name, "Item");
             let mut candidate = base.clone();
             let mut index = 2;
             while !used.insert(candidate.clone()) {
@@ -113,7 +178,7 @@ fn item_class_stems<'a>(names: impl Iterator<Item = &'a str>) -> Vec<String> {
     let mut used = HashSet::new();
     names
         .map(|name| {
-            let base = name.to_string();
+            let base = csharp_clean_ident(name, "Item");
             let mut candidate = base.clone();
             let mut index = 2;
             while !used.insert(candidate.clone()) {
@@ -165,26 +230,27 @@ fn tuple_class_names(ir: &ContractIr, registry: &TupleRegistry) -> HashMap<Strin
     .into_iter()
     .map(str::to_string)
     .collect::<HashSet<_>>();
-    used.insert(format!("{}AbiMetadata", ir.name));
-    used.insert(format!("{}Binding", ir.name));
+    let contract = csharp_contract_name(&ir.name);
+    used.insert(format!("{contract}AbiMetadata"));
+    used.insert(format!("{contract}Binding"));
     if ir.constructor.is_some() {
-        used.insert(format!("{}ConstructorParams", ir.name));
+        used.insert(format!("{contract}ConstructorParams"));
     }
     for stem in function_stems(ir) {
-        used.insert(format!("{}{stem}Params", ir.name));
-        used.insert(format!("{}{stem}Result", ir.name));
+        used.insert(format!("{contract}{stem}Params"));
+        used.insert(format!("{contract}{stem}Result"));
     }
     for stem in item_class_stems(ir.events.iter().map(|event| event.name.as_str())) {
-        used.insert(format!("{}{stem}Event", ir.name));
+        used.insert(format!("{contract}{stem}Event"));
     }
     for stem in item_class_stems(ir.errors.iter().map(|error| error.name.as_str())) {
-        used.insert(format!("{}{stem}Error", ir.name));
+        used.insert(format!("{contract}{stem}Error"));
     }
     registry
         .defs()
         .iter()
         .map(|def| {
-            let base = format!("{}{}", ir.name, def.name);
+            let base = format!("{contract}{}", csharp_clean_ident(&def.name, "Tuple"));
             let mut candidate = base.clone();
             let mut suffix = 2;
             while !used.insert(candidate.clone()) {
@@ -204,6 +270,7 @@ pub fn render_csharp_file(ir: &ContractIr) -> String {
 
 /// Generates C# ABI metadata and types, optionally with callable Nethereum bindings.
 pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> String {
+    let contract = csharp_contract_name(&ir.name);
     let registry = TupleRegistry::new(ir);
     let tuple_names = tuple_class_names(ir, &registry);
     let mut out = String::new();
@@ -230,12 +297,17 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
         .replace('"', "\"\"");
     out.push_str(&format!(
         "    /// <summary>Embedded ABI of {}.</summary>\n    public static class {}AbiMetadata\n    {{\n        public const string ABI = @\"{}\";\n    }}\n",
-        ir.name, ir.name, abi
+        csharp_xml_doc(&ir.name), contract, abi
     ));
 
     for def in registry.defs() {
         let class_name = &tuple_names[&def.name];
-        out.push_str(&format!("\n    /// <summary>ABI tuple {}.</summary>\n    [Struct(\"{}\")]\n    public class {}\n    {{\n", def.name, def.name, class_name));
+        out.push_str(&format!(
+            "\n    /// <summary>ABI tuple {}.</summary>\n    [Struct(\"{}\")]\n    public class {}\n    {{\n",
+            csharp_xml_doc(&def.name),
+            def.name,
+            class_name
+        ));
         let field_names = csharp_property_names(
             def.components
                 .iter()
@@ -264,10 +336,14 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
     }
 
     if let Some(constructor) = &ir.constructor {
-        out.push_str(&format!("\n    /// <summary>Constructor arguments for {}.</summary>\n    public class {}ConstructorParams\n    {{\n", ir.name, ir.name));
+        out.push_str(&format!(
+            "\n    /// <summary>Constructor arguments for {}.</summary>\n    public class {}ConstructorParams\n    {{\n",
+            csharp_xml_doc(&ir.name),
+            contract
+        ));
         let field_names = csharp_property_names(
             constructor.inputs.iter().map(|param| param.name.as_str()),
-            &format!("{}ConstructorParams", ir.name),
+            &format!("{contract}ConstructorParams"),
             false,
         );
         for (i, param) in constructor.inputs.iter().enumerate() {
@@ -297,25 +373,26 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
     for (f, stem) in ir.functions.iter().zip(&stems) {
         out.push('\n');
 
-        let class_name = format!("{}{}Params", ir.name, stem);
+        let class_name = format!("{contract}{stem}Params");
 
         // Doc comment
         if let Some(ref natspec) = f.natspec {
             if let Some(ref notice) = natspec.notice {
                 out.push_str(&format!(
                     "    /// <summary>Parameters for the {} function. {}</summary>\n",
-                    f.name, notice
+                    csharp_xml_doc(&f.name),
+                    csharp_xml_doc(notice)
                 ));
             } else {
                 out.push_str(&format!(
                     "    /// <summary>Parameters for the {} function.</summary>\n",
-                    f.name
+                    csharp_xml_doc(&f.name)
                 ));
             }
         } else {
             out.push_str(&format!(
                 "    /// <summary>Parameters for the {} function.</summary>\n",
-                f.name
+                csharp_xml_doc(&f.name)
             ));
         }
 
@@ -353,8 +430,12 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
         }
         out.push_str("    }\n");
 
-        let result_name = format!("{}{}Result", ir.name, stem);
-        out.push_str(&format!("\n    /// <summary>Outputs of {}.</summary>\n    [FunctionOutput]\n    public class {} : IFunctionOutputDTO\n    {{\n", f.name, result_name));
+        let result_name = format!("{contract}{stem}Result");
+        out.push_str(&format!(
+            "\n    /// <summary>Outputs of {}.</summary>\n    [FunctionOutput]\n    public class {} : IFunctionOutputDTO\n    {{\n",
+            csharp_xml_doc(&f.name),
+            result_name
+        ));
         let field_names = csharp_property_names(
             f.outputs.iter().map(|param| param.name.as_str()),
             &result_name,
@@ -385,31 +466,37 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
     for (event, stem) in ir.events.iter().zip(&event_stems) {
         out.push('\n');
 
-        let class_name = format!("{}{}Event", ir.name, stem);
+        let class_name = format!("{contract}{stem}Event");
 
         // Doc comment
         if let Some(ref natspec) = event.natspec {
             if let Some(ref notice) = natspec.notice {
                 out.push_str(&format!(
                     "    /// <summary>The {} event. {}</summary>\n",
-                    event.name, notice
+                    csharp_xml_doc(&event.name),
+                    csharp_xml_doc(notice)
                 ));
             } else {
                 out.push_str(&format!(
                     "    /// <summary>The {} event.</summary>\n",
-                    event.name
+                    csharp_xml_doc(&event.name)
                 ));
             }
         } else {
             out.push_str(&format!(
                 "    /// <summary>The {} event.</summary>\n",
-                event.name
+                csharp_xml_doc(&event.name)
             ));
         }
 
+        let event_attr = if event.anonymous {
+            format!("[Event(\"{}\", true)]", event.name)
+        } else {
+            format!("[Event(\"{}\")]", event.name)
+        };
         out.push_str(&format!(
-            "    [Event(\"{}\")]\n    public class {} : IEventDTO\n    {{\n",
-            event.name, class_name
+            "    {event_attr}\n    public class {} : IEventDTO\n    {{\n",
+            class_name
         ));
         let field_names = csharp_property_names(
             event.inputs.iter().map(|param| param.name.as_str()),
@@ -454,25 +541,26 @@ pub fn render_csharp_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Stri
     for (error, stem) in ir.errors.iter().zip(&error_stems) {
         out.push('\n');
 
-        let class_name = format!("{}{}Error", ir.name, stem);
+        let class_name = format!("{contract}{stem}Error");
 
         // Doc comment
         if let Some(ref natspec) = error.natspec {
             if let Some(ref notice) = natspec.notice {
                 out.push_str(&format!(
                     "    /// <summary>The {} error. {}</summary>\n",
-                    error.name, notice
+                    csharp_xml_doc(&error.name),
+                    csharp_xml_doc(notice)
                 ));
             } else {
                 out.push_str(&format!(
                     "    /// <summary>The {} error.</summary>\n",
-                    error.name
+                    csharp_xml_doc(&error.name)
                 ));
             }
         } else {
             out.push_str(&format!(
                 "    /// <summary>The {} error.</summary>\n",
-                error.name
+                csharp_xml_doc(&error.name)
             ));
         }
 
@@ -637,9 +725,13 @@ fn ir_uses_big_integer(ir: &ContractIr) -> bool {
         params.iter().any(|p| type_uses_big_integer(&p.ty))
     };
 
-    ir.functions
-        .iter()
-        .any(|f| check_params(&f.inputs) || check_params(&f.outputs))
+    ir.constructor
+        .as_ref()
+        .is_some_and(|c| check_params(&c.inputs))
+        || ir
+            .functions
+            .iter()
+            .any(|f| check_params(&f.inputs) || check_params(&f.outputs))
         || ir.events.iter().any(|e| check_event_params(&e.inputs))
         || ir.errors.iter().any(|e| check_params(&e.inputs))
 }
@@ -650,7 +742,11 @@ fn type_uses_big_integer(ty: &SolType) -> bool {
         SolType::Uint(bits) | SolType::Int(bits) => *bits > 64,
         SolType::Array(inner) | SolType::FixedArray(inner, _) => type_uses_big_integer(inner),
         SolType::Tuple(components) => components.iter().any(|c| type_uses_big_integer(&c.ty)),
-        _ => false,
+        SolType::Bool
+        | SolType::Address
+        | SolType::StringType
+        | SolType::Bytes
+        | SolType::BytesN(_) => false,
     }
 }
 

@@ -89,7 +89,7 @@ fn metadata_mode_keeps_all_value_types_and_identities_without_callables() {
         "using atg_transfer_params",
         "using atg_transfer_returns",
         "using atg_Transfer_event_fields",
-        "inline constexpr const char *abi = ::atg_Token_abi",
+        "static constexpr const char *abi = ::atg_Token_abi",
     ] {
         assert!(cpp_source.contains(expected), "missing {expected}");
     }
@@ -268,7 +268,9 @@ fn filters_with_more_than_four_topics_fail_without_writing_topic_slots() {
         true,
     );
     let filter = line(&source, "bool atg_Sample_atg_Changed_event_filter(");
-    assert!(filter.contains("out->topic_count = 5; return false;"));
+    assert!(filter.contains("out->topic_count = 5;"));
+    assert!(filter.contains("(void)topic0;"));
+    assert!(filter.contains("return false;"));
     assert!(!filter.contains("out->topics["));
 }
 

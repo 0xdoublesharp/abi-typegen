@@ -1,14 +1,14 @@
 //! Nethereum-backed C# contract bindings.
 
 use super::{
-    csharp_property_names, function_stems, item_class_stems, item_stems, map_type,
-    tuple_class_names,
+    csharp_contract_name, csharp_property_names, function_stems, item_class_stems, item_stems,
+    map_type, tuple_class_names,
 };
 use crate::tuples::TupleRegistry;
 use abi_typegen_core::types::{ContractIr, StateMutability};
 
 pub(super) fn render(ir: &ContractIr) -> String {
-    let contract = &ir.name;
+    let contract = csharp_contract_name(&ir.name);
     let registry = TupleRegistry::new(ir);
     let tuple_names = tuple_class_names(ir, &registry);
     let binding = format!("{contract}Binding");
@@ -98,8 +98,17 @@ pub(super) fn render(ir: &ContractIr) -> String {
                 .map(|byte| format!("{byte:02x}"))
                 .collect::<String>()
         );
+        let filter_body = if event.anonymous {
+            format!(
+                "            var filter = contract.GetEventBySignature(\"{topic}\").CreateFilterInput(from, to);\n            filter.Topics = Array.Empty<object>();\n            return filter;\n"
+            )
+        } else {
+            format!(
+                "            return contract.GetEventBySignature(\"{topic}\").CreateFilterInput(from, to);\n"
+            )
+        };
         out.push_str(&format!(
-            "\n        /// <summary>Creates a historical filter for {signature}.</summary>\n        public NewFilterInput Filter{stem}(BlockParameter from = null, BlockParameter to = null)\n        {{\n            return contract.GetEventBySignature(\"{topic}\").CreateFilterInput(from, to);\n        }}\n\n        /// <summary>Retrieves and decodes filtered {signature} logs.</summary>\n        public Task<List<EventLog<{dto}>>> Query{stem}Async(NewFilterInput filter)\n        {{\n            return contract.GetEventBySignature(\"{topic}\").GetAllChangesAsync<{dto}>(filter);\n        }}\n\n        /// <summary>Decodes a {signature} log.</summary>\n        public {dto} Decode{stem}Event(FilterLog log)\n        {{\n            var decoded = contract.GetEventBySignature(\"{topic}\").DecodeAllEventsForEvent<{dto}>(new[] {{ log }});\n            if (decoded.Count != 1) throw new ArgumentException(\"Log does not match event\", nameof(log));\n            return decoded[0].Event;\n        }}\n"
+            "\n        /// <summary>Creates a historical filter for {signature}.</summary>\n        public NewFilterInput Filter{stem}(BlockParameter from = null, BlockParameter to = null)\n        {{\n{filter_body}        }}\n\n        /// <summary>Retrieves and decodes filtered {signature} logs.</summary>\n        public Task<List<EventLog<{dto}>>> Query{stem}Async(NewFilterInput filter)\n        {{\n            return contract.GetEventBySignature(\"{topic}\").GetAllChangesAsync<{dto}>(filter);\n        }}\n\n        /// <summary>Decodes a {signature} log.</summary>\n        public {dto} Decode{stem}Event(FilterLog log)\n        {{\n            var decoded = contract.GetEventBySignature(\"{topic}\").DecodeAllEventsForEvent<{dto}>(new[] {{ log }});\n            if (decoded.Count != 1) throw new ArgumentException(\"Log does not match event\", nameof(log));\n            return decoded[0].Event;\n        }}\n"
         ));
         let indexed = event
             .inputs

@@ -85,14 +85,31 @@ struct Field {
     web3j: String,
 }
 
+/// Sanitizes an identifier into a valid PascalCase Kotlin type/member stem.
+pub(super) fn kotlin_exported(name: &str, fallback: &str) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = exported(&cleaned);
+    if stem.is_empty() {
+        fallback.to_string()
+    } else if !stem.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("{fallback}{stem}")
+    } else {
+        stem
+    }
+}
+
 /// Returns the contract object name, avoiding Kotlin and web3j type names.
 pub fn namespace_name(contract_name: &str) -> String {
-    let contract = exported(contract_name);
-    let contract = if contract.is_empty() {
-        "Contract".to_string()
-    } else {
-        contract
-    };
+    let contract = kotlin_exported(contract_name, "Contract");
     if is_web3j_generated_name(&contract) {
         format!("{contract}Contract")
     } else {
@@ -129,10 +146,11 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
         .defs()
         .iter()
         .map(|def| {
-            let name = if is_web3j_generated_name(&def.name) {
-                format!("{}Tuple", def.name)
+            let base = kotlin_exported(&def.name, "Tuple");
+            let name = if is_web3j_generated_name(&base) {
+                format!("{base}Tuple")
             } else {
-                def.name.clone()
+                base
             };
             (def.name.clone(), scope.claim(&name))
         })
@@ -237,7 +255,14 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
                             );
                             format!("@Parameterized(type = {element}::class) ")
                         }
-                        _ => String::new(),
+                        SolType::Bool
+                        | SolType::StringType
+                        | SolType::Address
+                        | SolType::Uint(_)
+                        | SolType::Int(_)
+                        | SolType::Bytes
+                        | SolType::BytesN(_)
+                        | SolType::Tuple(_) => String::new(),
                     };
                     format!("{annotation}{}: {ty}", escape_keyword(&f.name))
                 })
@@ -287,7 +312,10 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
         classes.push(render_class(
             &format!(
                 "{}Params",
-                scope.claim_family(&format!("{}{index}", exported(&function.name)), &["Params"])
+                scope.claim_family(
+                    &format!("{}{index}", kotlin_exported(&function.name, "Function")),
+                    &["Params"]
+                )
             ),
             &format!("Arguments of `{signature}`."),
             function.natspec.as_ref(),
@@ -296,6 +324,7 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
         ));
     }
 
+    let mut event_classes = Vec::with_capacity(ir.events.len());
     for (event, index) in ir
         .events
         .iter()
@@ -325,18 +354,24 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
             false,
             &mut imports,
         );
+        let event_class = format!(
+            "{}Event",
+            scope.claim_family(
+                &format!("{}{index}", kotlin_exported(&event.name, "Event")),
+                &["Event"]
+            )
+        );
         classes.push(render_class(
-            &format!(
-                "{}Event",
-                scope.claim_family(&format!("{}{index}", exported(&event.name)), &["Event"])
-            ),
+            &event_class,
             &format!("Fields of the `{signature}` event."),
             event.natspec.as_ref(),
             &fields,
             None,
         ));
+        event_classes.push(event_class);
     }
 
+    let mut error_classes = Vec::with_capacity(ir.errors.len());
     for (error, index) in ir
         .errors
         .iter()
@@ -364,20 +399,32 @@ pub fn render_kotlin_file_with_wrappers(ir: &ContractIr, package: &str, wrappers
             false,
             &mut imports,
         );
+        let error_class = format!(
+            "{}Error",
+            scope.claim_family(
+                &format!("{}{index}", kotlin_exported(&error.name, "Error")),
+                &["Error"]
+            )
+        );
         classes.push(render_class(
-            &format!(
-                "{}Error",
-                scope.claim_family(&format!("{}{index}", exported(&error.name)), &["Error"])
-            ),
+            &error_class,
             &format!("Arguments of the `{signature}` error."),
             error.natspec.as_ref(),
             &fields,
             None,
         ));
+        error_classes.push(error_class);
     }
 
     let wrapper_output = if wrappers {
-        wrappers::render(ir, &kotlin, &mut imports)
+        wrappers::render(
+            ir,
+            &kotlin,
+            &mut imports,
+            &mut scope,
+            &event_classes,
+            &error_classes,
+        )
     } else {
         String::new()
     };
@@ -510,7 +557,14 @@ impl Kotlin<'_> {
                     self.decoder_type(inner, internal_type, imports)
                 )
             }
-            _ => class,
+            SolType::Bool
+            | SolType::StringType
+            | SolType::Address
+            | SolType::Uint(_)
+            | SolType::Int(_)
+            | SolType::Bytes
+            | SolType::BytesN(_)
+            | SolType::Tuple(_) => class,
         }
     }
 
@@ -582,7 +636,7 @@ fn is_web3j_generated_name(name: &str) -> bool {
 fn is_dynamic(ty: &SolType) -> bool {
     match ty {
         SolType::Bytes | SolType::StringType | SolType::Array(_) => true,
-        SolType::FixedArray(inner, _) => is_dynamic(inner),
+        SolType::FixedArray(inner, size) => *size > 0 && is_dynamic(inner),
         SolType::Tuple(components) => components.iter().any(|c| is_dynamic(&c.ty)),
         SolType::Uint(_)
         | SolType::Int(_)
@@ -720,7 +774,24 @@ fn bytes_n_import(size: u8) -> &'static str {
 
 /// `safeTransferFrom` with overload `0` becomes `SAFE_TRANSFER_FROM_0`.
 fn constant_base(name: &str, index: &str) -> String {
-    let base = name.to_shouty_snake_case();
+    let cleaned: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let base = cleaned.to_shouty_snake_case();
+    let base = if base.is_empty() {
+        "ITEM".to_string()
+    } else if !base.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        format!("ITEM_{base}")
+    } else {
+        base
+    };
     if index.is_empty() {
         base
     } else {

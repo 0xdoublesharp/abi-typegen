@@ -1,7 +1,7 @@
 //! SDK-backed Kotlin contract wrapper generation.
 
-use super::{Kotlin, escape_keyword, kotlin_string, suffixes};
-use crate::naming::{Scope, exported, overload_indices, param_names};
+use super::{Kotlin, escape_keyword, kotlin_exported, kotlin_string, suffixes};
+use crate::naming::{Scope, overload_indices, param_names};
 use abi_typegen_core::types::{AbiParam, ContractIr, SolType, StateMutability};
 use std::collections::BTreeSet;
 
@@ -11,6 +11,9 @@ pub(super) fn render(
     ir: &ContractIr,
     kotlin: &Kotlin<'_>,
     imports: &mut BTreeSet<&'static str>,
+    scope: &mut Scope,
+    event_classes: &[String],
+    error_classes: &[String],
 ) -> String {
     let mut out = String::new();
     out.push_str(r#"
@@ -97,8 +100,12 @@ pub(super) fn render(
     let mut method_scope = Scope::default();
     for (function, overload) in ir.functions.iter().zip(overload_indices(&ir.functions)) {
         let suffix = overload.map(|i| i.to_string()).unwrap_or_default();
-        let stem = method_scope.claim(&format!("{}{}", exported(&function.name), suffix));
-        let input_names = names(&function.inputs, kotlin);
+        let stem = method_scope.claim(&format!(
+            "{}{}",
+            kotlin_exported(&function.name, "Function"),
+            suffix
+        ));
+        let input_names = names_with_reserved(&function.inputs, kotlin, &[]);
         let args = function
             .inputs
             .iter()
@@ -155,7 +162,7 @@ pub(super) fn render(
                 function.outputs[0].internal_type.as_deref(),
                 imports,
             ),
-            _ => format!("{stem}Result"),
+            _ => scope.claim(&format!("{stem}Result")),
         };
         if function
             .inputs
@@ -169,10 +176,10 @@ pub(super) fn render(
         out.push_str(&format!("\n    /** Encodes calldata for `{}` without an RPC call. */\n    fun encode{stem}({args}): String = org.web3j.abi.FunctionEncoder.encode(function{stem}({arg_names}))\n", function.signature()));
         if function.outputs.len() > 1 {
             out.push_str(&format!(
-                "\n    /** Decoded result of `{}`. */\n    data class {stem}Result(\n",
+                "\n    /** Decoded result of `{}`. */\n    data class {return_type}(\n",
                 function.signature()
             ));
-            let output_names = names(&function.outputs, kotlin);
+            let output_names = names_with_reserved(&function.outputs, kotlin, &[]);
             for (p, name) in function.outputs.iter().zip(&output_names) {
                 let ty = kotlin.field_type(&p.ty, p.internal_type.as_deref(), imports);
                 out.push_str(&format!("        val {}: {ty},\n", escape_keyword(name)));
@@ -203,7 +210,7 @@ pub(super) fn render(
                 out.push_str(&format!("        return {}\n", exprs[0]));
             } else {
                 out.push_str(&format!(
-                    "        return {stem}Result({})\n",
+                    "        return {return_type}({})\n",
                     exprs.join(", ")
                 ));
             }
@@ -211,40 +218,85 @@ pub(super) fn render(
         out.push_str("    }\n");
         match function.state_mutability {
             StateMutability::View | StateMutability::Pure => {
-                out.push_str(&format!("\n    /** Executes a read call for `{}`. */\n    fun call{stem}(client: Client{}{}): {return_type} =\n        decode{stem}Result(client.call(encode{stem}({arg_names})))\n", function.signature(), if args.is_empty() { "" } else { ", " }, args));
+                let call_input_names = names_with_reserved(&function.inputs, kotlin, &["client"]);
+                let call_args = function
+                    .inputs
+                    .iter()
+                    .zip(&call_input_names)
+                    .map(|(p, name)| {
+                        format!(
+                            "{}: {}",
+                            escape_keyword(name),
+                            kotlin.field_type(&p.ty, p.internal_type.as_deref(), imports)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let call_arg_names = call_input_names
+                    .iter()
+                    .map(|name| escape_keyword(name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push_str(&format!("\n    /** Executes a read call for `{}`. */\n    fun call{stem}(client: Client{}{}): {return_type} =\n        decode{stem}Result(client.call(encode{stem}({call_arg_names})))\n", function.signature(), if call_args.is_empty() { "" } else { ", " }, call_args));
             }
             StateMutability::NonPayable | StateMutability::Payable => {
-                let params = if args.is_empty() {
+                let send_input_names =
+                    names_with_reserved(&function.inputs, kotlin, &["client", "options"]);
+                let send_args = function
+                    .inputs
+                    .iter()
+                    .zip(&send_input_names)
+                    .map(|(p, name)| {
+                        format!(
+                            "{}: {}",
+                            escape_keyword(name),
+                            kotlin.field_type(&p.ty, p.internal_type.as_deref(), imports)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let send_arg_names = send_input_names
+                    .iter()
+                    .map(|name| escape_keyword(name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let params = if send_args.is_empty() {
                     "options: TransactionOptions".to_string()
                 } else {
-                    format!("{args}, options: TransactionOptions")
+                    format!("{send_args}, options: TransactionOptions")
                 };
                 let value_check = if function.state_mutability == StateMutability::NonPayable {
                     "        require(options.value == java.math.BigInteger.ZERO) { \"nonpayable function cannot receive value\" }\n"
                 } else {
                     ""
                 };
-                out.push_str(&format!("\n    /** Sends a write transaction for `{}`. */\n    fun send{stem}(client: Client, {params}): org.web3j.protocol.core.methods.response.EthSendTransaction {{\n{value_check}        return client.send(encode{stem}({arg_names}), options)\n    }}\n", function.signature()));
+                out.push_str(&format!("\n    /** Sends a write transaction for `{}`. */\n    fun send{stem}(client: Client, {params}): org.web3j.protocol.core.methods.response.EthSendTransaction {{\n{value_check}        return client.send(encode{stem}({send_arg_names}), options)\n    }}\n", function.signature()));
             }
         }
     }
-    for (event, suffix) in ir
+    let mut event_method_scope = Scope::default();
+    for ((event, suffix), event_class) in ir
         .events
         .iter()
         .zip(suffixes(ir.events.iter().map(|e| e.name.as_str())))
+        .zip(event_classes)
     {
-        let stem = format!("{}{}", exported(&event.name), suffix);
+        let stem = event_method_scope.claim(&format!(
+            "{}{}",
+            kotlin_exported(&event.name, "Event"),
+            suffix
+        ));
         let has_hashes = event
             .inputs
             .iter()
             .any(|p| p.indexed && indexed_hash(&p.ty));
         let result_class = if has_hashes {
-            format!("Decoded{stem}Event")
+            scope.claim(&format!("Decoded{stem}Event"))
         } else {
-            format!("{stem}Event")
+            event_class.clone()
         };
         if has_hashes {
-            let field_names = param_names(event.inputs.iter().map(|p| {
+            let raw_names = param_names(event.inputs.iter().map(|p| {
                 (
                     p.name.as_str(),
                     &p.ty,
@@ -253,14 +305,16 @@ pub(super) fn render(
                         .name_of_type(&p.ty, p.internal_type.as_deref()),
                 )
             }));
+            let mut field_scope = Scope::default();
             out.push_str(&format!("\n    /** Decoded `{}` log; indexed dynamic fields hold their topic hash. */\n    data class {result_class}(\n", event.signature()));
-            for (p, name) in event.inputs.iter().zip(&field_names) {
+            for (p, name) in event.inputs.iter().zip(&raw_names) {
+                let name = field_scope.claim(name);
                 let ty = if p.indexed && indexed_hash(&p.ty) {
                     "String".to_string()
                 } else {
                     kotlin.field_type(&p.ty, p.internal_type.as_deref(), imports)
                 };
-                out.push_str(&format!("        val {}: {ty},\n", escape_keyword(name)));
+                out.push_str(&format!("        val {}: {ty},\n", escape_keyword(&name)));
             }
             out.push_str("    )\n");
         }
@@ -283,7 +337,7 @@ pub(super) fn render(
             .map(|p| layout::expression(&p.ty, p.internal_type.as_deref(), kotlin, imports))
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!("        val values = decodeLayout(log.data, AbiTuple(listOf({data_layouts})) {{ it }}) as List<Any>\n        require(values.size == {}) {{ \"incorrect event data arity\" }}\n", nonindexed.len()));
+        out.push_str(&format!("        val data = if (log.data.isEmpty()) \"0x\" else log.data\n        val values = decodeLayout(data, AbiTuple(listOf({data_layouts})) {{ it }}) as List<Any>\n        require(values.size == {}) {{ \"incorrect event data arity\" }}\n", nonindexed.len()));
         let mut indexed_i = 0;
         let mut data_i = 0;
         let mut exprs = Vec::new();
@@ -318,7 +372,7 @@ pub(super) fn render(
                 exprs.join(", ")
             ));
         } else if event.inputs.is_empty() {
-            out.push_str(&format!("        return {stem}Event\n"));
+            out.push_str(&format!("        return {result_class}\n"));
         }
         out.push_str("    }\n");
         let mut topic = if event.anonymous {
@@ -334,7 +388,7 @@ pub(super) fn render(
             .iter()
             .filter(|p| p.indexed)
             .collect::<Vec<_>>();
-        let indexed_names = param_names(indexed_params.iter().map(|p| {
+        let raw_indexed_names = param_names(indexed_params.iter().map(|p| {
             (
                 p.name.as_str(),
                 &p.ty,
@@ -343,9 +397,11 @@ pub(super) fn render(
                     .name_of_type(&p.ty, p.internal_type.as_deref()),
             )
         }));
+        let mut filter_scope = Scope::with_reserved(["address", "fromBlock", "toBlock", "filter"]);
         let mut filter_args = Vec::new();
-        for (p, name) in indexed_params.iter().zip(&indexed_names) {
-            let arg = escape_keyword(name);
+        for (p, name) in indexed_params.iter().zip(&raw_indexed_names) {
+            let name = filter_scope.claim(name);
+            let arg = escape_keyword(&name);
             let ty = if indexed_hash(&p.ty) {
                 "String".to_string()
             } else {
@@ -369,21 +425,27 @@ pub(super) fn render(
         };
         out.push_str(&format!("\n    /** Creates an SDK filter for `{}` at one contract address. */\n    fun filter{stem}Event(address: String, fromBlock: org.web3j.protocol.core.DefaultBlockParameter, toBlock: org.web3j.protocol.core.DefaultBlockParameter{filter_args}): org.web3j.protocol.core.methods.request.EthFilter {{\n        val filter = org.web3j.protocol.core.methods.request.EthFilter(fromBlock, toBlock, address)\n{topic}        return filter\n    }}\n", event.signature()));
     }
-    for (error, suffix) in ir
+    let mut error_method_scope = Scope::default();
+    for ((error, suffix), error_class) in ir
         .errors
         .iter()
         .zip(suffixes(ir.errors.iter().map(|e| e.name.as_str())))
+        .zip(error_classes)
     {
-        let stem = format!("{}{}", exported(&error.name), suffix);
+        let stem = error_method_scope.claim(&format!(
+            "{}{}",
+            kotlin_exported(&error.name, "Error"),
+            suffix
+        ));
         let layouts = error
             .inputs
             .iter()
             .map(|p| layout::expression(&p.ty, p.internal_type.as_deref(), kotlin, imports))
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!("\n    /** Decodes the `{}` custom error, or returns null for another selector. */\n    @Suppress(\"UNCHECKED_CAST\")\n    fun decode{stem}Error(data: String): {stem}Error? {{\n        if (!data.startsWith({}, ignoreCase = true)) return null\n        val values = decodeLayout(\"0x\" + data.substring(10), AbiTuple(listOf({layouts})) {{ it }}) as List<Any>\n        require(values.size == {}) {{ \"incorrect custom error arity\" }}\n", error.signature(), kotlin_string(&error.selector().to_string()), error.inputs.len()));
+        out.push_str(&format!("\n    /** Decodes the `{}` custom error, or returns null for another selector. */\n    @Suppress(\"UNCHECKED_CAST\")\n    fun decode{stem}Error(data: String): {error_class}? {{\n        if (!data.startsWith({}, ignoreCase = true)) return null\n        val values = decodeLayout(\"0x\" + data.substring(10), AbiTuple(listOf({layouts})) {{ it }}) as List<Any>\n        require(values.size == {}) {{ \"incorrect custom error arity\" }}\n", error.signature(), kotlin_string(&error.selector().to_string()), error.inputs.len()));
         if error.inputs.is_empty() {
-            out.push_str(&format!("        return {stem}Error\n"));
+            out.push_str(&format!("        return {error_class}\n"));
         } else {
             let exprs = error
                 .inputs
@@ -395,7 +457,7 @@ pub(super) fn render(
                 })
                 .collect::<Vec<_>>();
             out.push_str(&format!(
-                "        return {stem}Error({})\n",
+                "        return {error_class}({})\n",
                 exprs.join(", ")
             ));
         }
@@ -404,8 +466,8 @@ pub(super) fn render(
     out
 }
 
-fn names(params: &[AbiParam], kotlin: &Kotlin<'_>) -> Vec<String> {
-    param_names(params.iter().map(|p| {
+fn names_with_reserved(params: &[AbiParam], kotlin: &Kotlin<'_>, reserved: &[&str]) -> Vec<String> {
+    let raw = param_names(params.iter().map(|p| {
         (
             p.name.as_str(),
             &p.ty,
@@ -413,7 +475,9 @@ fn names(params: &[AbiParam], kotlin: &Kotlin<'_>) -> Vec<String> {
                 .registry
                 .name_of_type(&p.ty, p.internal_type.as_deref()),
         )
-    }))
+    }));
+    let mut scope = Scope::with_reserved(reserved.iter().copied());
+    raw.into_iter().map(|name| scope.claim(&name)).collect()
 }
 
 fn type_ref(

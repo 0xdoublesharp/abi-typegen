@@ -112,9 +112,34 @@ struct Field {
     ty: String,
 }
 
+pub(super) fn swift_exported(name: &str, fallback: &str) -> String {
+    let clean: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let out = exported(&clean);
+    if out.is_empty() {
+        fallback.to_string()
+    } else {
+        out
+    }
+}
+
 /// Returns the public Swift namespace for a contract, avoiding SDK type and module names.
 pub fn namespace_name(contract_name: &str) -> String {
-    Scope::with_reserved(SDK_NAMES.iter().copied()).claim(&exported(contract_name))
+    Scope::with_reserved(
+        SDK_NAMES
+            .iter()
+            .copied()
+            .chain(SWIFT_KEYWORDS.iter().copied()),
+    )
+    .claim(&swift_exported(contract_name, "Contract"))
 }
 
 /// Renders `<Name>.swift` for `ir`.
@@ -131,13 +156,19 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
     let mut scope = Scope::with_reserved(
         [contract.as_str(), "abi"]
             .into_iter()
-            .chain(SDK_NAMES.iter().copied()),
+            .chain(SDK_NAMES.iter().copied())
+            .chain(SWIFT_KEYWORDS.iter().copied()),
     );
 
     let tuple_names: HashMap<String, String> = registry
         .defs()
         .iter()
-        .map(|def| (def.name.clone(), scope.claim(&def.name)))
+        .map(|def| {
+            (
+                def.name.clone(),
+                scope.claim(&swift_exported(&def.name, "Tuple")),
+            )
+        })
         .collect();
     let swift_type = |ty: &SolType, internal_type: Option<&str>, imports: &mut Imports| {
         sol_type_to_swift(ty, internal_type, &registry, &tuple_names, imports)
@@ -212,7 +243,10 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
         );
         let params_name = format!(
             "{}Params",
-            scope.claim_family(&format!("{}{index}", exported(&function.name)), &["Params"])
+            scope.claim_family(
+                &format!("{}{index}", swift_exported(&function.name, "Item")),
+                &["Params"]
+            )
         );
         types.push(render_struct(
             &params_name,
@@ -227,7 +261,10 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
     for (event, index) in ir.events.iter().zip(event_overloads) {
         let signature = event.signature();
         let constant = scope.claim_family(
-            &format!("{}{index}", lower_first(&exported(&event.name))),
+            &format!(
+                "{}{index}",
+                lower_first(&swift_exported(&event.name, "Event"))
+            ),
             &["EventSignature", "EventTopic"],
         );
         constants.push((
@@ -252,7 +289,10 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
         );
         let type_name = format!(
             "{}Event",
-            scope.claim_family(&format!("{}{index}", exported(&event.name)), &["Event"])
+            scope.claim_family(
+                &format!("{}{index}", swift_exported(&event.name, "Item")),
+                &["Event"]
+            )
         );
         types.push(render_struct(
             &type_name,
@@ -267,7 +307,10 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
     for (error, index) in ir.errors.iter().zip(error_overloads) {
         let signature = error.signature();
         let constant = scope.claim_family(
-            &format!("{}{index}", lower_first(&exported(&error.name))),
+            &format!(
+                "{}{index}",
+                lower_first(&swift_exported(&error.name, "Error"))
+            ),
             &["ErrorSignature", "ErrorSelector"],
         );
         constants.push((
@@ -290,7 +333,10 @@ pub fn render_swift_file_with_wrappers(ir: &ContractIr, wrappers: bool) -> Strin
         );
         let type_name = format!(
             "{}Error",
-            scope.claim_family(&format!("{}{index}", exported(&error.name)), &["Error"])
+            scope.claim_family(
+                &format!("{}{index}", swift_exported(&error.name, "Item")),
+                &["Error"]
+            )
         );
         types.push(render_struct(
             &type_name,

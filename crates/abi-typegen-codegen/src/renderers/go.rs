@@ -27,6 +27,20 @@ pub fn render_go_file(ir: &ContractIr, package: &str) -> String {
     render_go_file_with_wrappers(ir, package, false)
 }
 
+pub(super) fn go_exported(name: &str) -> String {
+    let clean: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    exported(&clean)
+}
+
 /// Renders Go ABI metadata and types, optionally adding callable bindings.
 pub fn render_go_file_with_wrappers(ir: &ContractIr, package: &str, wrappers: bool) -> String {
     let registry = TupleRegistry::new(ir);
@@ -40,7 +54,14 @@ pub fn render_go_file_with_wrappers(ir: &ContractIr, package: &str, wrappers: bo
         common: wrappers,
     };
     let mut scope = Scope::default();
-    let contract = exported(&ir.name);
+    let contract = {
+        let name = go_exported(&ir.name);
+        if name.is_empty() {
+            "Contract".to_string()
+        } else {
+            name
+        }
+    };
     // The documented ABI constant keeps its name; anything else that clashes
     // with it takes the suffix.
     let abi_name = scope.claim(&format!("{contract}ABI"));
@@ -50,10 +71,13 @@ pub fn render_go_file_with_wrappers(ir: &ContractIr, package: &str, wrappers: bo
         .defs()
         .iter()
         .map(|def| {
-            (
-                def.name.clone(),
-                scope.claim(&format!("{contract}{}", def.name)),
-            )
+            let clean = go_exported(&def.name);
+            let stem = if clean.is_empty() {
+                "Tuple".to_string()
+            } else {
+                clean
+            };
+            (def.name.clone(), scope.claim(&format!("{contract}{stem}")))
         })
         .collect();
     let go_type = |ty: &SolType, internal_type: Option<&str>, imports: &mut Imports| {
@@ -272,7 +296,12 @@ fn abigen_names<'a>(names: impl IntoIterator<Item = &'a str>) -> Vec<String> {
     names
         .into_iter()
         .map(|name| {
-            let base = exported(name);
+            let exported_name = go_exported(name);
+            let base = if exported_name.is_empty() {
+                "Item".to_string()
+            } else {
+                exported_name
+            };
             let count = seen.entry(name).or_insert(0);
             let result = if *count == 0 {
                 base
@@ -311,7 +340,7 @@ fn struct_fields<'a>(
         .zip(&params)
         .enumerate()
         .map(|(index, (name, (abi_name, ty, internal_type)))| {
-            let mut base = exported(name);
+            let mut base = go_exported(name);
             if base.is_empty() {
                 // A name of only underscores has no letters to export.
                 base = format!("Field{index}");
@@ -489,8 +518,10 @@ fn render_struct(name: &str, fields: &[Field]) -> String {
     for (field, type_width) in fields.iter().zip(type_widths) {
         match &field.tag {
             Some(tag) => out.push_str(&format!(
-                "\t{:<name_width$} {:<type_width$} `abi:\"{tag}\"`\n",
-                field.name, field.ty
+                "\t{:<name_width$} {:<type_width$} {}\n",
+                field.name,
+                field.ty,
+                go_struct_tag(tag)
             )),
             None => out.push_str(&format!("\t{:<name_width$} {}\n", field.name, field.ty)),
         }
@@ -564,6 +595,15 @@ fn go_string(value: &str) -> String {
     }
     out.push('"');
     out
+}
+
+fn go_struct_tag(abi_name: &str) -> String {
+    let tag_content = format!("abi:{}", go_string(abi_name));
+    if !tag_content.contains('`') && !tag_content.contains('\n') && !tag_content.contains('\r') {
+        format!("`{tag_content}`")
+    } else {
+        go_string(&tag_content)
+    }
 }
 
 fn go_raw_or_quoted(value: &str) -> String {

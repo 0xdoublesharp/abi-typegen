@@ -113,7 +113,7 @@ fn signature_based_javascript_and_python_aliases_stay_compatible() {
                 let expected = if ethers_v5 {
                     format!("{alias}: contract[\"{signature}\"]")
                 } else {
-                    format!("{alias}: contract.getFunction(\"{signature}\")")
+                    format!("{alias}: target.getFunction(\"{signature}\")")
                 };
                 assert!(source.contains(&expected), "missing {expected}");
             }

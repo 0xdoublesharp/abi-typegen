@@ -1,10 +1,31 @@
 //! SDK-backed callable Go bindings layered on top of the metadata renderer.
 
 use super::{
-    Imports, Scope, TupleRegistry, go_string, render_struct, sol_type_to_go, struct_fields,
+    Imports, Scope, TupleRegistry, go_exported, go_string, render_struct, sol_type_to_go,
+    struct_fields,
 };
 use abi_typegen_core::types::{ContractIr, StateMutability};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+fn claim_method_family(
+    used: &mut HashSet<String>,
+    base: &str,
+    patterns: &[(&str, &str)],
+) -> String {
+    let mut candidate = base.to_string();
+    let mut number = 2;
+    while patterns
+        .iter()
+        .any(|(prefix, suffix)| used.contains(&format!("{prefix}{candidate}{suffix}")))
+    {
+        candidate = format!("{base}{number}");
+        number += 1;
+    }
+    for (prefix, suffix) in patterns {
+        used.insert(format!("{prefix}{candidate}{suffix}"));
+    }
+    candidate
+}
 
 pub(super) struct Context<'a> {
     pub ir: &'a ContractIr,
@@ -36,7 +57,14 @@ pub(super) fn render(context: Context<'_>) -> String {
         error_types,
         constructor_params,
     } = context;
-    let contract = crate::naming::exported(&ir.name);
+    let contract = {
+        let name = go_exported(&ir.name);
+        if name.is_empty() {
+            "Contract".to_string()
+        } else {
+            name
+        }
+    };
     let binding = scope.claim(&format!("{contract}Binding"));
     let mut out = format!(
         "// {binding} provides typed calls, transactions, logs, and offline ABI encoding.\n\
@@ -118,12 +146,25 @@ pub(super) fn render(context: Context<'_>) -> String {
          \treturn address, tx, binding, nil\n}}\n\n"
     ));
 
-    let mut callable_names =
-        Scope::with_reserved(["ABI", "DecodeError", "method", "event", "customError"]);
+    let mut used_methods: HashSet<String> = [
+        "ABI",
+        "EncodeConstructor",
+        "DecodeError",
+        "method",
+        "event",
+        "customError",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
     for ((function, base), params_type) in
         ir.functions.iter().zip(function_names).zip(function_params)
     {
-        let base = callable_names.claim(base);
+        let base = claim_method_family(
+            &mut used_methods,
+            base,
+            &[("", ""), ("Encode", ""), ("Decode", "Result")],
+        );
         let signature = go_string(&function.signature());
         let params_decl = params_type
             .as_ref()
@@ -265,9 +306,12 @@ pub(super) fn render(context: Context<'_>) -> String {
         }
     }
 
-    let mut event_methods = Scope::default();
     for ((event, base), event_type) in ir.events.iter().zip(event_names).zip(event_types) {
-        let base = event_methods.claim(base);
+        let base = claim_method_family(
+            &mut used_methods,
+            base,
+            &[("Decode", "Event"), ("Filter", ""), ("Watch", "")],
+        );
         let signature = go_string(&event.signature());
         let fields = struct_fields(
             event
@@ -303,10 +347,21 @@ pub(super) fn render(context: Context<'_>) -> String {
             if !param.indexed {
                 continue;
             }
-            if matches!(param.ty, abi_typegen_core::types::SolType::Tuple(_)) {
+            if super::indexed_topic_is_hash(&param.ty)
+                && (matches!(param.ty, abi_typegen_core::types::SolType::Tuple(_))
+                    || param.name.is_empty())
+            {
                 topic_fields.push_str(&format!(
                     "\tout.{} = log.Topics[{topic_index}]\n",
                     field.name
+                ));
+            } else if param.name.is_empty() {
+                topic_fields.push_str(&format!(
+                    "\ttopicValues{topic_index}, err := (abi.Arguments{{{{Type: definition.Inputs[{input_index}].Type}}}}).Unpack(log.Topics[{topic_index}].Bytes())\n\
+                     \tif err != nil {{ return out, err }}\n\
+                     \tout.{name} = *abi.ConvertType(topicValues{topic_index}[0], new({ty})).(*{ty})\n",
+                    name = field.name,
+                    ty = field.ty
                 ));
             } else {
                 topic_fields.push_str(&format!("\tindexed = append(indexed, definition.Inputs[{input_index}])\n\tindexedTopics = append(indexedTopics, log.Topics[{topic_index}])\n"));
@@ -414,10 +469,9 @@ pub(super) fn render(context: Context<'_>) -> String {
         ));
     }
 
-    let mut error_methods = Scope::default();
     let mut decoded_error_names = Vec::new();
     for ((error, base), error_type) in ir.errors.iter().zip(error_names).zip(error_types) {
-        let base = error_methods.claim(base);
+        let base = claim_method_family(&mut used_methods, base, &[("Decode", "Error")]);
         decoded_error_names.push(base.clone());
         let signature = go_string(&error.signature());
         let fields = struct_fields(

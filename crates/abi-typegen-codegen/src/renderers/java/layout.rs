@@ -1,10 +1,16 @@
 //! Java web3j wrapper methods and explicit ABI layout decoding.
 
-use super::{Java, is_dynamic, java_ident, java_string};
-use crate::naming::{Scope, exported, overload_indices, param_names, repeat_indices};
+use super::{Java, is_dynamic, java_exported, java_ident, java_string};
+use crate::naming::{Scope, overload_indices, param_names, repeat_indices};
 use abi_typegen_core::types::{ContractIr, SolType, StateMutability};
 
-pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
+pub(super) fn render(
+    ir: &ContractIr,
+    java: &Java<'_>,
+    scope: &mut Scope,
+    event_classes: &[String],
+    error_classes: &[String],
+) -> String {
     let mut out = String::from(
         r#"
     /** Gas settings and payable amount for a write transaction. */
@@ -49,7 +55,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
         public Object read(String hex, int at) { return decoder.apply(hex, at); }
     }
     private record ArrayLayout(Layout element, Integer fixedSize) implements Layout {
-        public boolean dynamic() { return fixedSize == null || element.dynamic(); }
+        public boolean dynamic() { return fixedSize == null || (fixedSize > 0 && element.dynamic()); }
         public int headBytes() { return dynamic() ? 32 : Math.multiplyExact(fixedSize, element.headBytes()); }
         public Object read(String hex, int at) {
             int count = fixedSize == null ? word(hex, at).intValueExact() : fixedSize;
@@ -122,7 +128,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
     for (function, index) in ir.functions.iter().zip(overload_indices(&ir.functions)) {
         let stem = method_scope.claim(&format!(
             "{}{}",
-            exported(&function.name),
+            java_exported(&function.name, "Function"),
             index.map(|i| i.to_string()).unwrap_or_default()
         ));
         let fields = java.fields(&function.inputs);
@@ -176,10 +182,10 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                 &function.outputs[0].ty,
                 function.outputs[0].internal_type.as_deref(),
             ),
-            _ => format!("{stem}Result"),
+            _ => scope.claim(&format!("{stem}Result")),
         };
         if function.outputs.len() > 1 {
-            out.push_str(&java.record(&format!("{stem}Result"), &function.outputs));
+            out.push_str(&java.record(&result_ty, &function.outputs));
         }
         out.push_str(&format!("    /** Decodes `{}` ABI output. */\n    @SuppressWarnings(\"unchecked\")\n    public static {result_ty} decode{stem}Result(String data) {{\n",function.signature()));
         if function.outputs.is_empty() {
@@ -207,57 +213,82 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
-                out.push_str(&format!("        return new {stem}Result({args});\n"));
+                out.push_str(&format!("        return new {result_ty}({args});\n"));
             }
         }
         out.push_str("    }\n");
         match function.state_mutability {
             StateMutability::View | StateMutability::Pure => {
-                let full_args = if args.is_empty() {
+                let call_fields = java.fields_with_reserved(&function.inputs, &["client"]);
+                let call_args = call_fields
+                    .iter()
+                    .map(|f| format!("{} {}", f.ty, f.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let call_names = call_fields
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let full_args = if call_args.is_empty() {
                     "Client client".to_string()
                 } else {
-                    format!("Client client, {args}")
+                    format!("Client client, {call_args}")
                 };
-                let call = if result_ty == "void" {
-                    format!("decode{stem}Result(client.call(encode{stem}({names})));")
+                let call = if function.outputs.is_empty() {
+                    format!("decode{stem}Result(client.call(encode{stem}({call_names})));")
                 } else {
-                    format!("return decode{stem}Result(client.call(encode{stem}({names})));")
+                    format!("return decode{stem}Result(client.call(encode{stem}({call_names})));")
                 };
                 out.push_str(&format!("    /** Performs a typed read call. */\n    public static {result_ty} call{stem}({full_args}) throws java.io.IOException {{ {call} }}\n"));
             }
             StateMutability::NonPayable | StateMutability::Payable => {
-                let full_args = if args.is_empty() {
+                let send_fields =
+                    java.fields_with_reserved(&function.inputs, &["client", "options"]);
+                let send_args = send_fields
+                    .iter()
+                    .map(|f| format!("{} {}", f.ty, f.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let send_names = send_fields
+                    .iter()
+                    .map(|f| f.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let full_args = if send_args.is_empty() {
                     "Client client, TransactionOptions options".to_string()
                 } else {
-                    format!("Client client, {args}, TransactionOptions options")
+                    format!("Client client, {send_args}, TransactionOptions options")
                 };
                 let check = if function.state_mutability == StateMutability::NonPayable {
                     "if (options.value().signum() != 0) throw new IllegalArgumentException(\"nonpayable function cannot receive value\"); "
                 } else {
                     ""
                 };
-                out.push_str(&format!("    /** Signs and submits a typed write transaction. */\n    public static org.web3j.protocol.core.methods.response.EthSendTransaction send{stem}({full_args}) throws java.io.IOException {{ {check}return client.send(encode{stem}({names}), options); }}\n"));
+                out.push_str(&format!("    /** Signs and submits a typed write transaction. */\n    public static org.web3j.protocol.core.methods.response.EthSendTransaction send{stem}({full_args}) throws java.io.IOException {{ {check}return client.send(encode{stem}({send_names}), options); }}\n"));
             }
         }
     }
-    for (event, index) in ir
+    let mut event_method_scope = Scope::default();
+    for ((event, index), event_class) in ir
         .events
         .iter()
         .zip(repeat_indices(ir.events.iter().map(|e| e.name.as_str())))
+        .zip(event_classes)
     {
-        let stem = format!(
+        let stem = event_method_scope.claim(&format!(
             "{}{}",
-            exported(&event.name),
+            java_exported(&event.name, "Event"),
             index.map(|i| i.to_string()).unwrap_or_default()
-        );
+        ));
         let hashes = event
             .inputs
             .iter()
             .any(|p| p.indexed && indexed_hash(&p.ty));
         let result = if hashes {
-            format!("Decoded{stem}Event")
+            scope.claim(&format!("Decoded{stem}Event"))
         } else {
-            format!("{stem}Event")
+            event_class.clone()
         };
         if hashes {
             let names = param_names(event.inputs.iter().map(|p| {
@@ -268,6 +299,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                         .name_of_type(&p.ty, p.internal_type.as_deref()),
                 )
             }));
+            let mut field_scope = Scope::default();
             let fields = event
                 .inputs
                 .iter()
@@ -280,7 +312,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                         } else {
                             java.field_type(&p.ty, p.internal_type.as_deref())
                         },
-                        java_ident(&name)
+                        field_scope.claim(&java_ident(&name))
                     )
                 })
                 .collect::<Vec<_>>()
@@ -307,7 +339,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
             .map(|p| layout_expr(&p.ty, p.internal_type.as_deref(), java))
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!("        var values = (java.util.List<?>) decodeLayout(log.getData(), new TupleLayout(java.util.List.of({layouts}), v -> v));\n"));
+        out.push_str(&format!("        String data = (log.getData() == null || log.getData().isEmpty()) ? \"0x\" : log.getData();\n        var values = (java.util.List<?>) decodeLayout(data, new TupleLayout(java.util.List.of({layouts}), v -> v));\n"));
         let mut topic_i = topic_start;
         let mut data_i = 0;
         let mut args = Vec::new();
@@ -322,7 +354,16 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                     );
                     let native = match p.ty {
                         SolType::BytesN(_) => format!("({sdk}) {decoded}"),
-                        _ => format!("(({sdk}) {decoded}).getValue()"),
+                        SolType::Bool | SolType::Address | SolType::Uint(_) | SolType::Int(_) => {
+                            format!("(({sdk}) {decoded}).getValue()")
+                        }
+                        SolType::StringType
+                        | SolType::Bytes
+                        | SolType::Array(_)
+                        | SolType::FixedArray(_, _)
+                        | SolType::Tuple(_) => {
+                            unreachable!("dynamic indexed types are handled as topic hashes")
+                        }
                     };
                     args.push(native);
                 }
@@ -353,6 +394,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
                     .name_of_type(&p.ty, p.internal_type.as_deref()),
             )
         }));
+        let mut filter_scope = Scope::with_reserved(["address", "fromBlock", "toBlock", "filter"]);
         let mut filters = String::new();
         if !event.anonymous {
             filters.push_str(&format!(
@@ -361,7 +403,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
             ));
         }
         for (p, name) in indexed.iter().zip(names) {
-            let name = java_ident(&name);
+            let name = filter_scope.claim(&java_ident(&name));
             let ty = if indexed_hash(&p.ty) {
                 "String".to_string()
             } else {
@@ -380,16 +422,18 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
         }
         out.push_str(&format!("    /** Builds a positional SDK event filter. */\n    public static org.web3j.protocol.core.methods.request.EthFilter filter{stem}Event({}) {{\n        var filter = new org.web3j.protocol.core.methods.request.EthFilter(fromBlock, toBlock, address);\n{filters}        return filter;\n    }}\n",filter_args.join(", ")));
     }
-    for (error, index) in ir
+    let mut error_method_scope = Scope::default();
+    for ((error, index), error_class) in ir
         .errors
         .iter()
         .zip(repeat_indices(ir.errors.iter().map(|e| e.name.as_str())))
+        .zip(error_classes)
     {
-        let stem = format!(
+        let stem = error_method_scope.claim(&format!(
             "{}{}",
-            exported(&error.name),
+            java_exported(&error.name, "Error"),
             index.map(|i| i.to_string()).unwrap_or_default()
-        );
+        ));
         let layouts = error
             .inputs
             .iter()
@@ -408,7 +452,7 @@ pub(super) fn render(ir: &ContractIr, java: &Java<'_>) -> String {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!("    /** Decodes `{}` custom error, or null for another selector. */\n    @SuppressWarnings(\"unchecked\")\n    public static {stem}Error decode{stem}Error(String data) {{\n        if (!data.regionMatches(true, 0, {}, 0, 10)) return null;\n        var values = (java.util.List<?>) decodeLayout(\"0x\" + data.substring(10), new TupleLayout(java.util.List.of({layouts}), v -> v));\n        return new {stem}Error({args});\n    }}\n",error.signature(),java_string(&error.selector().to_string())));
+        out.push_str(&format!("    /** Decodes `{}` custom error, or null for another selector. */\n    @SuppressWarnings(\"unchecked\")\n    public static {error_class} decode{stem}Error(String data) {{\n        if (!data.regionMatches(true, 0, {}, 0, 10)) return null;\n        var values = (java.util.List<?>) decodeLayout(\"0x\" + data.substring(10), new TupleLayout(java.util.List.of({layouts}), v -> v));\n        return new {error_class}({args});\n    }}\n",error.signature(),java_string(&error.selector().to_string())));
     }
     out
 }
@@ -432,7 +476,14 @@ fn layout_expr(ty: &SolType, internal: Option<&str>, java: &Java<'_>) -> String 
             let sdk = java.sdk_type(ty, internal);
             let value = match ty {
                 SolType::Bytes | SolType::BytesN(_) => "value".to_string(),
-                _ => "value.getValue()".to_string(),
+                SolType::Bool
+                | SolType::Address
+                | SolType::StringType
+                | SolType::Uint(_)
+                | SolType::Int(_) => "value.getValue()".to_string(),
+                SolType::Array(_) | SolType::FixedArray(_, _) | SolType::Tuple(_) => {
+                    unreachable!("matched atomic ABI type")
+                }
             };
             format!(
                 "new Atom({}, (hex, at) -> {{ var value = org.web3j.abi.TypeDecoder.decode(hex, Math.multiplyExact(at, 2), {sdk}.class); return {value}; }})",

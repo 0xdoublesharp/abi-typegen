@@ -24,7 +24,7 @@ pub(super) fn runtime() -> &'static str {
         private val element: AbiLayout,
         private val fixedSize: Int?,
     ) : AbiLayout {
-        override val dynamic: Boolean = fixedSize == null || element.dynamic
+        override val dynamic: Boolean = fixedSize == null || (fixedSize > 0 && element.dynamic)
         override val headBytes: Int = if (dynamic) 32 else Math.multiplyExact(fixedSize!!, element.headBytes)
         override fun read(hex: String, at: Int): Any {
             val count = fixedSize ?: word(hex, at).intValueExact()

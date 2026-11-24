@@ -30,7 +30,7 @@ fn swift_writes_distinguish_payable_values_and_empty_arguments() {
     ]));
     let source = swift::render_swift_file_with_wrappers(&ir, true);
     for expected in [
-        "prepareDeposit(transaction: CodableTransaction? = nil, value: BigUInt = 0)",
+        "prepareDeposit(transaction: CodableTransaction? = nil, value: BigUInt? = nil)",
         "guard tx.value == 0",
         "guard data.isEmpty",
         "readPing(transaction: CodableTransaction? = nil)",

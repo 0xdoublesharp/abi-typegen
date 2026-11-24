@@ -1,7 +1,9 @@
 //! Optional web3swift-backed contract operations.
 
-use super::{Field, Imports, escape_keyword, render_struct, sol_type_to_swift, swift_string};
-use crate::naming::{Scope, exported, param_names, repeat_indices};
+use super::{
+    Field, Imports, escape_keyword, render_struct, sol_type_to_swift, swift_exported, swift_string,
+};
+use crate::naming::{Scope, param_names, repeat_indices};
 use crate::tuples::TupleRegistry;
 use abi_typegen_core::types::{AbiParam, ContractIr, SolType, StateMutability};
 use std::collections::HashMap;
@@ -36,18 +38,12 @@ fn fields(
 }
 
 fn tuple_name<'a>(
-    ty: &SolType,
+    parts: &[abi_typegen_core::types::TupleComponent],
     internal: Option<&str>,
     registry: &TupleRegistry,
     tuples: &'a HashMap<String, String>,
 ) -> &'a str {
-    &tuples[registry.name(
-        match ty {
-            SolType::Tuple(parts) => parts,
-            _ => unreachable!("tuple only"),
-        },
-        internal,
-    )]
+    &tuples[registry.name(parts, internal)]
 }
 
 fn encode(
@@ -62,11 +58,17 @@ fn encode(
             "{expr}.map {{ item in {} }}",
             encode("item", inner, internal, registry, tuples)
         ),
-        SolType::Tuple(_) => format!(
+        SolType::Tuple(parts) => format!(
             "_encode{}({expr})",
-            tuple_name(ty, internal, registry, tuples)
+            tuple_name(parts, internal, registry, tuples)
         ),
-        _ => expr.to_string(),
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType => expr.to_string(),
     }
 }
 
@@ -82,11 +84,17 @@ fn decode(
             "try _array({expr}) {{ item in {} }}",
             decode("item", inner, internal, registry, tuples)
         ),
-        SolType::Tuple(_) => format!(
+        SolType::Tuple(parts) => format!(
             "try _decode{}({expr})",
-            tuple_name(ty, internal, registry, tuples)
+            tuple_name(parts, internal, registry, tuples)
         ),
-        _ => {
+        SolType::Uint(_)
+        | SolType::Int(_)
+        | SolType::Bool
+        | SolType::Address
+        | SolType::Bytes
+        | SolType::BytesN(_)
+        | SolType::StringType => {
             let swift = sol_type_to_swift(ty, internal, registry, tuples, &mut Imports::default());
             format!("try _cast({expr}, as: {swift}.self)")
         }
@@ -169,9 +177,9 @@ fn validate(
                 format!("{indent}for item in {expr} {{\n{nested}{indent}}}\n")
             }
         }
-        SolType::Tuple(_) => format!(
+        SolType::Tuple(parts) => format!(
             "{indent}try _validate{}({expr})\n",
-            tuple_name(ty, internal, registry, tuples)
+            tuple_name(parts, internal, registry, tuples)
         ),
         SolType::Bool | SolType::StringType | SolType::Address | SolType::Bytes => String::new(),
     }
@@ -266,13 +274,18 @@ pub(super) fn render(
     }
 
     let function_suffixes = repeat_indices(ir.functions.iter().map(|f| f.name.as_str()));
+    let mut fn_stem_scope = Scope::default();
     let mut read_methods = String::new();
     let mut write_methods = String::new();
     for ((function, suffix), params_name) in
         ir.functions.iter().zip(function_suffixes).zip(params_names)
     {
         let suffix = suffix.map(|n| n.to_string()).unwrap_or_default();
-        let stem = format!("{}{}", exported(&function.name), suffix);
+        let stem = fn_stem_scope.claim(&format!(
+            "{}{}",
+            swift_exported(&function.name, "Item"),
+            suffix
+        ));
         let signature = swift_string(&function.signature());
         let fs = fields(&function.inputs, registry, tuples);
         let arg = params_name
@@ -335,10 +348,14 @@ pub(super) fn render(
             StateMutability::View | StateMutability::Pure => read_methods.push_str(&format!("\n        /// Calls `{}` and decodes its result.\n        public func read{stem}({arg}{comma}transaction: CodableTransaction? = nil) async throws -> {result_name} {{\n            var tx = transaction ?? CodableTransaction(to: address, data: Data())\n            tx.to = address\n            tx.data = try {name}.encode{stem}({args_call})\n            let operation = ReadOperation(transaction: tx, web3: web3, contract: contract, method: {signature})\n            return try {name}._decode{stem}Values(await operation.callContractMethod())\n        }}\n", function.signature(), comma = if arg.is_empty() { "" } else { ", " }, name = super::namespace_name(&ir.name))),
             StateMutability::NonPayable | StateMutability::Payable => {
                 let payable = matches!(function.state_mutability, StateMutability::Payable);
-                let value_arg = if payable { ", value: BigUInt = 0" } else { "" };
-                let value_expr = if payable { "value" } else { "0" };
+                let value_arg = if payable { ", value: BigUInt? = nil" } else { "" };
+                let value_assign = if payable {
+                    "            if let value { tx.value = value }\n"
+                } else {
+                    "            tx.value = 0\n"
+                };
                 let value_guard = if payable { "" } else { "            guard tx.value == 0 else { throw WrapperError.encodingFailed(\"nonpayable value\") }\n" };
-                write_methods.push_str(&format!("\n        /// Prepares `{}` with transaction options for signing or submission.\n        public func prepare{stem}({arg}{comma}transaction: CodableTransaction? = nil{value_arg}) throws -> WriteOperation {{\n            var tx = transaction ?? CodableTransaction(to: address, data: Data())\n{value_guard}            tx.to = address\n            tx.data = try {name}.encode{stem}({args_call})\n            tx.value = {value_expr}\n            return WriteOperation(transaction: tx, web3: web3, contract: contract, method: {signature})\n        }}\n", function.signature(), comma = if arg.is_empty() { "" } else { ", " }, name = super::namespace_name(&ir.name)));
+                write_methods.push_str(&format!("\n        /// Prepares `{}` with transaction options for signing or submission.\n        public func prepare{stem}({arg}{comma}transaction: CodableTransaction? = nil{value_arg}) throws -> WriteOperation {{\n            var tx = transaction ?? CodableTransaction(to: address, data: Data())\n{value_guard}            tx.to = address\n            tx.data = try {name}.encode{stem}({args_call})\n{value_assign}            return WriteOperation(transaction: tx, web3: web3, contract: contract, method: {signature})\n        }}\n", function.signature(), comma = if arg.is_empty() { "" } else { ", " }, name = super::namespace_name(&ir.name)));
             }
         }
     }
@@ -346,9 +363,14 @@ pub(super) fn render(
     out.push_str(&format!("\n    /// A web3swift contract instance for typed reads and writes.\n    public struct Client {{\n        private let web3: Web3\n        private let contract: EthereumContract\n        private let address: EthereumAddress\n\n        /// Binds this ABI to a provider and deployed address.\n        public init(web3: Web3, at address: EthereumAddress) throws {{\n            self.web3 = web3\n            self.address = address\n            self.contract = try EthereumContract({}.abi, at: address)\n        }}\n{read_methods}{write_methods}    }}\n", super::namespace_name(&ir.name)));
 
     let event_suffixes = repeat_indices(ir.events.iter().map(|e| e.name.as_str()));
+    let mut ev_stem_scope = Scope::default();
     for ((event, suffix), type_name) in ir.events.iter().zip(event_suffixes).zip(event_names) {
         let suffix = suffix.map(|n| n.to_string()).unwrap_or_default();
-        let stem = format!("{}{}", exported(&event.name), suffix);
+        let stem = ev_stem_scope.claim(&format!(
+            "{}{}",
+            swift_exported(&event.name, "Item"),
+            suffix
+        ));
         let signature = swift_string(&event.signature());
         out.push_str(&format!("\n    private static func _event{stem}() throws -> ABI.Element.Event {{\n        guard let event = try _contract().abi.compactMap({{ element -> ABI.Element.Event? in\n            if case .event(let value) = element {{ return value }}\n            return nil\n        }}).first(where: {{ $0.signature == {signature} }}) else {{ throw WrapperError.invalidValue({signature}) }}\n        return event\n    }}\n"));
         let indexed: Vec<_> = event
@@ -420,7 +442,7 @@ pub(super) fn render(
                     field.ty = "Data".to_string();
                 }
             }
-            let name = format!("Decoded{stem}Event");
+            let name = scope.claim(&format!("Decoded{stem}Event"));
             out.push('\n');
             out.push_str(&render_struct(
                 &name,
@@ -486,16 +508,25 @@ pub(super) fn render(
 
     out.push_str("\n    /// A decoded custom ABI error.\n    public enum DecodedCustomError {\n");
     let error_suffixes = repeat_indices(ir.errors.iter().map(|e| e.name.as_str()));
-    for ((error, suffix), name) in ir.errors.iter().zip(error_suffixes).zip(error_names) {
-        let suffix = suffix.map(|n| n.to_string()).unwrap_or_default();
+    let mut err_case_scope = Scope::default();
+    let error_case_names: Vec<String> = ir
+        .errors
+        .iter()
+        .zip(error_suffixes)
+        .map(|(error, suffix)| {
+            let suffix = suffix.map(|n| n.to_string()).unwrap_or_default();
+            err_case_scope.claim(&format!(
+                "{}{}",
+                crate::naming::lower_first(&swift_exported(&error.name, "Item")),
+                suffix
+            ))
+        })
+        .collect();
+    for ((error, case_name), name) in ir.errors.iter().zip(&error_case_names).zip(error_names) {
         out.push_str(&format!(
             "        /// `{}`.\n        case {}({name})\n",
             error.signature(),
-            escape_keyword(&format!(
-                "{}{}",
-                crate::naming::lower_first(&exported(&error.name)),
-                suffix
-            ))
+            escape_keyword(case_name)
         ));
     }
     out.push_str("    }\n\n    /// Decodes a custom revert payload, or returns nil for an unknown selector.\n    public static func decodeCustomError(_ data: Data) throws -> DecodedCustomError? {\n        guard data.count >= 4 else { throw WrapperError.invalidValue(\"error selector\") }\n");
@@ -504,14 +535,8 @@ pub(super) fn render(
             "        let contract = try _contract()\n        let selector = Data(data.prefix(4))\n",
         );
     }
-    let error_suffixes = repeat_indices(ir.errors.iter().map(|e| e.name.as_str()));
-    for ((error, suffix), name) in ir.errors.iter().zip(error_suffixes).zip(error_names) {
-        let suffix = suffix.map(|n| n.to_string()).unwrap_or_default();
-        let case_name = escape_keyword(&format!(
-            "{}{}",
-            crate::naming::lower_first(&exported(&error.name)),
-            suffix
-        ));
+    for ((error, raw_case_name), name) in ir.errors.iter().zip(&error_case_names).zip(error_names) {
+        let case_name = escape_keyword(raw_case_name);
         let signature = swift_string(&error.signature());
         let decoded = if error.inputs.is_empty() {
             "error.decodeEthError(Data(data.dropFirst(4))) != nil"
